@@ -2,7 +2,7 @@
 
 ;; Copyright (C)
 ;; Author: Lautaro García <https://github.com/Lautaro-Garcia>
-;; Package: helm-spotify-plus
+;; Package: counsel-spotify
 ;; Package-Requires: ((emacs "24.4") (ivy "0.9.0"))
 ;; Version: 0.1
 
