@@ -33,6 +33,27 @@
   "Variable to define spotify API url."
   :type 'string :group 'counsel-spotify)
 
+(defcustom counsel-spotify-backends-alist
+  '((gnu/linux . ((action . counsel-spotify-action-linux)
+                  (play-track . counsel-spotify-format-play-linux)
+                  (play . "Play")
+                  (toggle . "PlayPause")
+                  (next . "Next")
+                  (previous . "Previous")))
+    (darwin . ((action . counsel-spotify-action-darwin)
+               (play-track . counsel-spotify-format-play-darwin)
+               (play . "play track")
+               (toggle . "playpause")
+               (next . "next track")
+               (previous . "previous track"))))
+  "Variable to map each platform with its backend functions.
+Every patform should define a function that, given an string action,
+should call Spotify to execute that action.
+PLAY-TRACK is a function that, given an uri, returns a play action for that uri.
+Every other entry in the alist is an action,
+\(the action function will be called with it as a parameter)"
+  :type 'alist :group 'counsel-spotify)
+
 
 ;;;;;;;;;;;;;
 ;; Helpers ;;
@@ -46,25 +67,46 @@
     (cdr alist)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Spotify app integration ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;
+;; OS backends ;;
+;;;;;;;;;;;;;;;;;
 
-(defun counsel-spotify-action (action)
+(defun counsel-spotify-action-darwin (action)
   "Tell Soptify app to perform the given ACTION."
   (shell-command (format "osascript -e 'tell application \"Spotify\" to %s'" action)))
 
-(defun counsel-spotify-play-uri (uri)
+(defun counsel-spotify-format-play-darwin (uri)
   "Tell Spotify app to play the given URI."
-  (counsel-spotify-action (format "play track %S" uri)))
+  (format "play track %S" uri))
+
+(defvar counsel-spotify-dbus-call "dbus-send  --session --type=method_call --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 "
+  "Variable to hold the dbus call string.")
+
+(defun counsel-spotify-action-linux (action)
+  "Tell Soptify app to perform the given ACTION."
+  (shell-command (format (concat counsel-spotify-dbus-call "org.mpris.MediaPlayer2.Player.%s") action)))
+
+(defun counsel-spotify-format-play-linux (uri)
+  "Tell Spotify app to play the given URI."
+  (format "OpenUri \"string:%s\"" uri))
+
+(defun counsel-spotify-action (action &optional uri)
+  "Tell Soptify app to perform the given ACTION.
+If it's a play-track action will play the corresponding URI."
+  (let* ((backend (alist-get system-type counsel-spotify-backends-alist))
+         (action-fn (alist-get 'action backend))
+         (parameter (alist-get action backend)))
+    (if (eq action 'play-track)
+        (apply action-fn (list (apply parameter (list uri))))
+      (apply action-fn (list parameter)))))
 
 (defun counsel-spotify-play-album (track)
   "Get the Spotify app to play the album for this TRACK."
-  (counsel-spotify-play-uri (counsel-spotify-alist-get '(album uri) (get-text-property 0 'property track))))
+  (counsel-spotify-action 'play-track (counsel-spotify-alist-get '(album uri) (get-text-property 0 'property track))))
 
 (defun counsel-spotify-play-track (track)
   "Get the Spotify app to play the TRACK."
-  (counsel-spotify-play-uri (cdr (assoc 'uri (get-text-property 0 'property track)))))
+  (counsel-spotify-action 'play-track (alist-get 'uri (get-text-property 0 'property track))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -86,6 +128,21 @@
   "Function to decode the STRING due to the errors in some symbols."
    (decode-coding-string (string-make-unibyte string) 'utf-8))
 
+(defun counsel-spotify-do-search-artist (search-term)
+  "Queries spotify API for the artist in SEARCH-TERM."
+  (let ((url (counsel-spotify-search-by-type search-term "artist")))
+    (counsel-spotify-request url)))
+
+(defun counsel-spotify-do-search-track (search-term)
+  "Queries spotify API for the track in SEARCH-TERM."
+  (let ((url (counsel-spotify-search-by-type search-term "track")))
+    (counsel-spotify-request url)))
+
+(defun counsel-spotify-do-search-album (search-term)
+  "Queries spotify API for the album in SEARCH-TERM."
+  (let ((url (counsel-spotify-search-by-type search-term "album")))
+    (counsel-spotify-request url)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; Formatting output ;;
@@ -104,46 +161,6 @@
             track-name
             (mapconcat 'identity artist-names "/")
             album-name)))
-
-
-;;;;;;;;;;;;;;;;;
-;; Controllers ;;
-;;;;;;;;;;;;;;;;;
-
-(defun counsel-spotify-play ()
-  "Start playing current track."
-  (interactive)
-  (counsel-spotify-action "play track"))
-
-(defun counsel-spotify-toggle-play-pause ()
-  "Toggle play or pause of the current track."
-  (interactive)
-  (counsel-spotify-action "playpause"))
-
-(defun counsel-spotify-previous ()
-  "Start playing previous song."
-  (interactive)
-  (counsel-spotify-action "previous track"))
-
-(defun counsel-spotify-next ()
-  "Start playing next song."
-  (interactive)
-  (counsel-spotify-action "next track"))
-
-(defun counsel-spotify-do-search-artist (search-term)
-  "Queries spotify API for the artist in SEARCH-TERM."
-  (let ((url (counsel-spotify-search-by-type search-term "artist")))
-    (counsel-spotify-request url)))
-
-(defun counsel-spotify-do-search-track (search-term)
-  "Queries spotify API for the track in SEARCH-TERM."
-  (let ((url (counsel-spotify-search-by-type search-term "track")))
-    (counsel-spotify-request url)))
-
-(defun counsel-spotify-do-search-album (search-term)
-  "Queries spotify API for the album in SEARCH-TERM."
-  (let ((url (counsel-spotify-search-by-type search-term "album")))
-    (counsel-spotify-request url)))
 
 (defun counsel-spotify-search-track-formatted (search-term)
   "Helper function to format the output due to SEARCH-TERM."
@@ -167,6 +184,31 @@
       (when (> (length albums) 0)
         (mapcar (lambda (album) (propertize (counsel-spotify-alist-get '(name) album) 'property album))
                 (list (counsel-spotify-alist-get '(album) albums)))))))
+
+
+;;;;;;;;;;;;;;;;;
+;; Controllers ;;
+;;;;;;;;;;;;;;;;;
+
+(defun counsel-spotify-play ()
+  "Start playing current track."
+  (interactive)
+  (counsel-spotify-action 'play))
+
+(defun counsel-spotify-toggle-play-pause ()
+  "Toggle play or pause of the current track."
+  (interactive)
+  (counsel-spotify-action 'toggle))
+
+(defun counsel-spotify-previous ()
+  "Start playing previous song."
+  (interactive)
+  (counsel-spotify-action 'previous))
+
+(defun counsel-spotify-next ()
+  "Start playing next song."
+  (interactive)
+  (counsel-spotify-action 'next))
 
 
 ;;;;;;;;;;;;;;;;;;;
