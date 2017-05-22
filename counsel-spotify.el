@@ -3,7 +3,7 @@
 ;; Copyright (C)
 ;; Author: Lautaro García <https://github.com/Lautaro-Garcia>
 ;; Package: counsel-spotify
-;; Package-Requires: ((emacs "24.4") (ivy "0.9.0"))
+;; Package-Requires: ((emacs "25") (ivy "0.9.0"))
 ;; Version: 0.1
 
 ;; This file is not part of GNU Emacs.
@@ -28,6 +28,10 @@
 (require 'url)
 (require 'json)
 (require 'ivy)
+
+(defgroup  counsel-spotify nil
+  "Customs for `counsel-spotify'"
+  :group 'applications)
 
 (defcustom counsel-spotify-spotify-api-url "http://api.spotify.com/v1"
   "Variable to define spotify API url."
@@ -73,7 +77,7 @@ Every other entry in the alist is an action,
 
 (defun counsel-spotify-action-darwin (action)
   "Tell Soptify app to perform the given ACTION."
-  (shell-command (format "osascript -e 'tell application \"Spotify\" to %s'" action)))
+  (shell-command (concat "osascript -e 'tell application \"Spotify\" to '" (shell-quote-argument action))))
 
 (defun counsel-spotify-format-play-darwin (uri)
   "Tell Spotify app to play the given URI."
@@ -84,7 +88,7 @@ Every other entry in the alist is an action,
 
 (defun counsel-spotify-action-linux (action)
   "Tell Soptify app to perform the given ACTION."
-  (shell-command (format (concat counsel-spotify-dbus-call "org.mpris.MediaPlayer2.Player.%s") action)))
+  (shell-command (concat counsel-spotify-dbus-call "org.mpris.MediaPlayer2.Player." (shell-quote-argument action))))
 
 (defun counsel-spotify-format-play-linux (uri)
   "Tell Spotify app to play the given URI."
