@@ -144,7 +144,7 @@ If it's a play-track action will play the corresponding URI."
 
 (defun counsel-spotify-do-search-album (search-term)
   "Queries spotify API for the album in SEARCH-TERM."
-  (let ((url (counsel-spotify-search-by-type search-term "album")))
+  (let ((url (format "%s/search?q=%s&type=album" counsel-spotify-spotify-api-url search-term)))
     (counsel-spotify-request url)))
 
 
@@ -184,10 +184,9 @@ If it's a play-track action will play the corresponding URI."
   "Helper function to format the output due to SEARCH-TERM."
   (if (< (length search-term) 3)
       '("More input required" . nil)
-    (let ((albums (aref (counsel-spotify-alist-get '(tracks items) (counsel-spotify-do-search-album search-term)) 0)))
+    (let ((albums (counsel-spotify-alist-get '(albums items) (counsel-spotify-do-search-album search-term))))
       (when (> (length albums) 0)
-        (mapcar (lambda (album) (propertize (counsel-spotify-alist-get '(name) album) 'property album))
-                (list (counsel-spotify-alist-get '(album) albums)))))))
+        (mapcar (lambda (album) (propertize (alist-get 'name album) 'property album)) albums)))))
 
 
 ;;;;;;;;;;;;;;;;;
