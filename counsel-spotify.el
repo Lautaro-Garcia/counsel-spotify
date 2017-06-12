@@ -33,8 +33,20 @@
   "Customs for `counsel-spotify'"
   :group 'applications)
 
-(defcustom counsel-spotify-spotify-api-url "http://api.spotify.com/v1"
+(defcustom counsel-spotify-spotify-api-url "https://api.spotify.com/v1"
   "Variable to define spotify API url."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-spotify-api-authentication-url "https://accounts.spotify.com/api/token"
+  "Variable to define spotify API url for getting the access token."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-client-id ""
+  "Spotify application client ID."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-client-secret ""
+  "Spotify application client secret."
   :type 'string :group 'counsel-spotify)
 
 (defcustom counsel-spotify-backends-alist
@@ -69,6 +81,10 @@ Every other entry in the alist is an action,
       (counsel-spotify-alist-get (cdr symbols)
                              (assoc (car symbols) alist))
     (cdr alist)))
+
+(defun counsel-spotify-show-credentials-error ()
+  "Tell the user that the credentials are not set."
+  (message "The variables counsel-spotify-client-id or counsel-spotify-client-secret are undefined and both are required to authenticate to the Spotify API. See https://developer.spotify.com/my-applications"))
 
 
 ;;;;;;;;;;;;;;;;;
@@ -121,12 +137,37 @@ If it's a play-track action will play the corresponding URI."
   "Return a query for SEARCH-TERM in the corresponding TYPE (track, album)."
   (format "%s/search?q=%s:%s&type=track" counsel-spotify-spotify-api-url type search-term))
 
-(defun counsel-spotify-request (a-url)
-  "Function to request an json given a correct A-URL."
-  (with-current-buffer
-      (url-retrieve-synchronously a-url)
-    (goto-char url-http-end-of-headers)
-    (json-read)))
+(defun counsel-spotify-inner-request (a-url token-type token)
+  "Function to request an json given a correct A-URL.
+The request is authenticated via TOKEN-TYPE with the TOKEN."
+  (let ((url-request-extra-headers
+         `(("Authorization" . ,(concat "Bearer " token)))))
+    (with-current-buffer
+        (url-retrieve-synchronously a-url)
+      (goto-char url-http-end-of-headers)
+      (json-read))))
+
+(defun counsel-spotify-request (url)
+  "Make a request to the Spotify API to the given URL, handling authentication."
+  (let* ((token (counsel-spotify-get-token url))
+         (access-token (cdr token))
+         (token-type (car token)))
+    (counsel-spotify-inner-request url token-type access-token)))
+
+(defun counsel-spotify-get-token (url)
+  "Make a spotify request to the given URL with proper authentication."
+  (let ((url-request-method "POST")
+        (url-request-data "&grant_type=client_credentials")
+        (url-request-extra-headers
+         `(("Content-Type" . "application/x-www-form-urlencoded")
+           ("Authorization" . ,(concat "Basic " (base64-encode-string (concat counsel-spotify-client-id ":" counsel-spotify-client-secret) t))))))
+    (with-current-buffer
+        (url-retrieve-synchronously counsel-spotify-spotify-api-authentication-url)
+      (goto-char url-http-end-of-headers)
+      (let* ((response (json-read))
+             (token-type (alist-get 'token_type response))
+             (token (alist-get 'access_token response)))
+        (cons token-type token)))))
 
 (defun counsel-spotify-decode-utf8 (string)
   "Function to decode the STRING due to the errors in some symbols."
@@ -221,23 +262,29 @@ If it's a play-track action will play the corresponding URI."
 (defun counsel-spotify-search-track ()
   "Bring Ivy frontend to choose and play a track."
   (interactive)
-  (ivy-read "Search track: " #'counsel-spotify-search-track-formatted
-            :dynamic-collection t
-            :action 'counsel-spotify-play-track))
+  (if (or (string= counsel-spotify-client-id "") (string= counsel-spotify-client-secret ""))
+      (counsel-spotify-show-credentials-error)
+    (ivy-read "Search track: " #'counsel-spotify-search-track-formatted
+              :dynamic-collection t
+              :action 'counsel-spotify-play-track)))
 
 (defun counsel-spotify-search-artist ()
   "Bring Ivy frontend to choose and play an artist (sort of)."
   (interactive)
-  (ivy-read "Search artist: " #'counsel-spotify-search-artist-formatted
-            :dynamic-collection t
-            :action 'counsel-spotify-play-track))
+  (if (or (string= counsel-spotify-client-id "") (string= counsel-spotify-client-secret ""))
+      (counsel-spotify-show-credentials-error)
+    (ivy-read "Search artist: " #'counsel-spotify-search-artist-formatted
+              :dynamic-collection t
+              :action 'counsel-spotify-play-track)))
 
 (defun counsel-spotify-search-album ()
   "Bring Ivy frontend to choose and play an album."
   (interactive)
-  (ivy-read "Search album: " #'counsel-spotify-search-album-formatted
-            :dynamic-collection t
-            :action 'counsel-spotify-play-track))
+  (if (or (string= counsel-spotify-client-id "") (string= counsel-spotify-client-secret ""))
+      (counsel-spotify-show-credentials-error)
+    (ivy-read "Search album: " #'counsel-spotify-search-album-formatted
+              :dynamic-collection t
+              :action 'counsel-spotify-play-track)))
 
 (provide 'counsel-spotify)
 ;;; counsel-spotify.el ends here

@@ -12,6 +12,11 @@ with an Ivy interface. Many thanks to the authors of those for they amazing work
 
 [Ivy](https://github.com/abo-abo/swiper)
 
+## Notes on Spotify Web API authentication
+
+You'll need to [register an application](https://developer.spotify.com/my-applications) in Spotify in order to obtain a client id and a client secret. Then, you'll have to set the variables
+`counsel-spotify-client-id` and `counsel-spotify-client-secret` variables with your credentials to start using the search feature
+
 ## How to use it
 
 This package exposes three search functions `counsel-spotify-search-track`, `counsel-spotify-search-album` and `counsel-spotify-search-artist`. The options are fetched from
