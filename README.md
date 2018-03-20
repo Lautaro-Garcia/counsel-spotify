@@ -6,7 +6,7 @@ Little Emacs package to control Spotify app through an Ivy interface.
 > Isaac Newton
 
 This package is basically a port of [helm-spotify](https://github.com/krisajenkins/helm-spotify) and [helm-spotify-plus](https://github.com/wandersoncferreira/helm-spotify-plus)
-with an Ivy interface. Many thanks to the authors of those for they amazing work!
+with an Ivy interface. Many thanks to the authors of those for their amazing work!
 
 ## Dependencies
 
@@ -19,12 +19,18 @@ You'll need to [register an application](https://developer.spotify.com/my-applic
 
 ## How to use it
 
-This package exposes three search functions `counsel-spotify-search-track`, `counsel-spotify-search-album` and `counsel-spotify-search-artist`. The options are fetched from
-Spotify REST API. Hitting `RET` while selecting an option will start playing that track or album (depending on what the search were).
+This package exposes these search functions:
+* `counsel-spotify-search-track`
+* `counsel-spotify-search-album`
+* `counsel-spotify-search-artist` (not working entirely at the moment, see [this issue](https://github.com/hnarayanan/shpotify/issues/88))
+* `counsel-spotify-seach-tracks-by-album`
+* `counsel-spotify-search-tracks-by-artist`
+
+The options are fetched from Spotify REST API. Hitting `RET` while selecting an option will start playing that track or album (depending on what the search were). Also, hitting `M-o` will prompt a tiny menu with some more actions to choose from (for example, choosing to play the entire album a song belongs to)
 
 ### Controllers
 
-Also, there are defined some basic controllers for the Spotify App
+There are defined some basic controllers for the Spotify App
 
 | Action            | Function                            |
 |:----------------- |:----------------------------------- |
