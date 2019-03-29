@@ -234,21 +234,25 @@
 ;; Controllers ;;
 ;;;;;;;;;;;;;;;;;
 
+;;;###autoload
 (defun counsel-spotify-play ()
   "Start playing current track."
   (interactive)
   (counsel-spotify-tell-backend-to counsel-spotify-current-backend #'play))
 
+;;;###autoload
 (defun counsel-spotify-toggle-play-pause ()
   "Toggle play or pause of the current track."
   (interactive)
   (counsel-spotify-tell-backend-to counsel-spotify-current-backend #'playpause))
 
+;;;###autoload
 (defun counsel-spotify-previous ()
   "Start playing previous song."
   (interactive)
   (counsel-spotify-tell-backend-to counsel-spotify-current-backend #'previous))
 
+;;;###autoload
 (defun counsel-spotify-next ()
   "Start playing next song."
   (interactive)
@@ -263,6 +267,7 @@
   "Macro that create the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
   `(lambda (search-term) (mapcar #'counsel-spotify-get-formatted-object (counsel-spotify-search-query ,search-keyword search-term ,@search-args))))
 
+;;;###autoload
 (defun counsel-spotify-search-track ()
   "Bring Ivy frontend to choose and play a track."
   (interactive)
@@ -274,24 +279,28 @@
                       ("a" (lambda (elem) (counsel-spotify-do-play counsel-spotify-current-backend (album (counsel-spotify-unwrap-property elem)))) "Play album")
                       ("A" (lambda (elem) (counsel-spotify-do-play counsel-spotify-current-backend (artist (counsel-spotify-unwrap-property elem)))) "Play artist"))))
 
+;;;###autoload
 (defun counsel-spotify-search-artist ()
   "Bring Ivy frontend to choose and play an artist."
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Seach artist: " (counsel-spotify-search-by-term :artist :type 'artist) :dynamic-collection t :action #'counsel-spotify-play-property))
 
+;;;###autoload
 (defun counsel-spotify-search-album ()
   "Bring Ivy frontend to choose and play an album."
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Search album: " (counsel-spotify-search-by-term :album :type 'album) :dynamic-collection t :action #'counsel-spotify-play-property))
 
+;;;###autoload
 (defun counsel-spotify-search-tracks-by-artist ()
   "Bring Ivy frontend to search for all tracks for a given artist."
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Search tracks by artist: " (counsel-spotify-search-by-term :artist :type 'track) :dynamic-collection t :action #'counsel-spotify-play-property))
 
+;;;###autoload
 (defun counsel-spotify-search-tracks-by-album ()
   "Bring Ivy frontend to search for all track on a given album."
   (interactive)
