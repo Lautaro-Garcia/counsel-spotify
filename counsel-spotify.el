@@ -28,6 +28,7 @@
 (require 'url)
 (require 'json)
 (require 'ivy)
+(require 'dbus)
 
 (defgroup  counsel-spotify nil
   "Customs for `counsel-spotify'"
@@ -168,17 +169,21 @@
     ('gnu/linux (make-instance 'counsel-spotify-linux-backend))
     ('darwin    (make-instance 'counsel-spotify-darwin-backend))))
 
+(cl-defun counsel-spotify-call-spotify-via-dbus (method &rest args)
+  (apply #'dbus-call-method `(:session
+                              "org.mpris.MediaPlayer2.spotify"
+                              "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player"
+                              ,method
+                              ,@args)))
+
 (cl-defgeneric counsel-spotify-tell-backend-to (backend action)
   "Tells the given BACKEND to execute the given ACTION")
 
 (cl-defmethod counsel-spotify-tell-backend-to ((backend counsel-spotify-darwin-backend) action)
   (shell-command (concat "osascript -e 'tell application \"Spotify\" to '" (shell-quote-argument (funcall action (commands backend))))))
 
-(defconst counsel-spotify-dbus-call "dbus-send  --session --type=method_call --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 "
-  "Variable to hold the dbus call string.")
-
 (cl-defmethod counsel-spotify-tell-backend-to ((backend counsel-spotify-linux-backend) action)
-  (shell-command (concat counsel-spotify-dbus-call "org.mpris.MediaPlayer2.Player." (shell-quote-argument (funcall action (commands backend))))))
+  (counsel-spotify-call-spotify-via-dbus (funcall action (commands backend))))
 
 (cl-defgeneric counsel-spotify-do-play (backend playable)
   "Tells the BACKEND to play the PLAYABLE object")
@@ -187,7 +192,7 @@
   (shell-command (concat "osascript -e 'tell application \"Spotify\" to play track \"" (uri playable) "\"'")))
 
 (cl-defmethod counsel-spotify-do-play ((backend counsel-spotify-linux-backend) (playable counsel-spotify-playable))
-  (shell-command (concat counsel-spotify-dbus-call "org.mpris.MediaPlayer2.Player.OpenUri \"string:" (uri playable) "\"")))
+  (counsel-spotify-call-spotify-via-dbus "OpenUri" (uri playable)))
 
 (defun counsel-spotify-unwrap-property (elem)
   "Unwrap the property of ELEM."
