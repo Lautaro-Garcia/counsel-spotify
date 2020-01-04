@@ -51,6 +51,13 @@
   :type 'string :group 'counsel-spotify)
 
 
+(defcustom counsel-spotify-service-name "spotify"
+  "Name of the DBUS service used by the client we talk to.
+
+The official Spotify client uses `spotify', but one can also use
+alternative clients such as mopidy or spotifyd."
+  :type 'string :group 'counsel-spotify)
+
 ;;;;;;;;;;;;;
 ;; Helpers ;;
 ;;;;;;;;;;;;;
@@ -171,7 +178,7 @@
 
 (cl-defun counsel-spotify-call-spotify-via-dbus (method &rest args)
   (apply #'dbus-call-method `(:session
-                              "org.mpris.MediaPlayer2.spotify"
+                              ,(format "org.mpris.MediaPlayer2.%s" counsel-spotify-service-name)
                               "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player"
                               ,method
                               ,@args)))
