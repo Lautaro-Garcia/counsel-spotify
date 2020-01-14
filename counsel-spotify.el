@@ -58,6 +58,12 @@ The official Spotify client uses `spotify', but one can also use
 alternative clients such as mopidy or spotifyd."
   :type 'string :group 'counsel-spotify)
 
+(defcustom counsel-spotify-use-system-bus-p nil
+  "Whether to access the spotify client using the system DBUS.
+
+Some clients, such as mopidy, can run as system services."
+  :type 'boolean :group 'counsel-spotify)
+
 ;;;;;;;;;;;;;
 ;; Helpers ;;
 ;;;;;;;;;;;;;
@@ -177,7 +183,7 @@ alternative clients such as mopidy or spotifyd."
     ('darwin    (make-instance 'counsel-spotify-darwin-backend))))
 
 (cl-defun counsel-spotify-call-spotify-via-dbus (method &rest args)
-  (apply #'dbus-call-method `(:session
+  (apply #'dbus-call-method `(,(if counsel-spotify-use-system-bus-p :system :session)
                               ,(format "org.mpris.MediaPlayer2.%s" counsel-spotify-service-name)
                               "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player"
                               ,method
