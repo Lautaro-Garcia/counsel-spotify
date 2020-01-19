@@ -38,3 +38,9 @@ There are defined some basic controllers for the Spotify App
 | Toggle play/pause | `counsel-spotify-toggle-play-pause` |
 | Next song         | `counsel-spotify-next`              |
 | Previous song     | `counsel-spotify-previous`          |
+
+
+### What if I want to use another Spotify client (like Mopidy or Spotifyd)?
+Well, in that case I think you would be interested in two variables:
+* `counsel-spotify-service-name` is the name of the DBUS service counsel-spotify calls to handle the reproduction of a song
+* `counsel-spotify-use-system-bus-p` for some clients that use the system bus instead of the session
