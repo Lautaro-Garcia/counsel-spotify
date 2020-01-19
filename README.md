@@ -22,7 +22,7 @@ You'll need to [register an application](https://developer.spotify.com/my-applic
 This package exposes these search functions:
 * `counsel-spotify-search-track`
 * `counsel-spotify-search-album`
-* `counsel-spotify-search-artist` (not working entirely at the moment, see [this issue](https://github.com/hnarayanan/shpotify/issues/88))
+* `counsel-spotify-search-artist`
 * `counsel-spotify-seach-tracks-by-album`
 * `counsel-spotify-search-tracks-by-artist`
 
