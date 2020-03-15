@@ -5,7 +5,7 @@
 ;; URL: https://github.com/Lautaro-Garcia/counsel-spotify
 ;; Package: counsel-spotify
 ;; Package-Requires: ((emacs "25.1") (ivy "0.13.0"))
-;; Version: 0.2.0
+;; Version: 0.3.0
 
 ;; This file is not part of GNU Emacs.
 
@@ -65,6 +65,10 @@ alternative clients such as mopidy or spotifyd."
 Some clients, such as mopidy, can run as system services."
   :type 'boolean :group 'counsel-spotify)
 
+
+(defcustom counsel-spotify-use-notifications t
+  "Notify playback changes via DBUS (only for backends that support DBUS)."
+  :type 'boolean :group 'counsel-spotify)
 
 ;;;;;;;;;;;;;
 ;; Helpers ;;
@@ -230,6 +234,36 @@ Some clients, such as mopidy, can run as system services."
   (counsel-spotify-do-play counsel-spotify-current-backend (counsel-spotify-unwrap-property elem)))
 
 
+;;;;;;;;;;;;;;;;;;;
+;; Notifications ;;
+;;;;;;;;;;;;;;;;;;;
+
+(defun counsel-spotify-get-dbus-spotify-metadata-for (event property)
+  "Scrap Spotify's dbus EVENT for information about PROPERTY."
+  (caadr (assoc (format "xesam:%s" property) (caadr (assoc "Metadata" event)))))
+
+
+(defun counsel-spotify-handle-player-change (interface-name changed-properties invalidated-properties)
+  "DBUS event handler for Spotify's Player ProertiesChanged event. The signal has an INTERFACE-NAME, an CHANGED-PROPERTIES and an INVALIDATED-PROPERTIES."
+  (let* ((playback-status (caadr (assoc "PlaybackStatus" changed-properties)))
+         (track-name (counsel-spotify-get-dbus-spotify-metadata-for changed-properties "title"))
+         (artist     (car (counsel-spotify-get-dbus-spotify-metadata-for changed-properties "artist")))
+         (album      (counsel-spotify-get-dbus-spotify-metadata-for changed-properties "album")))
+    (message "(Spotify %s) %s - %s [%s]" playback-status artist track-name album)))
+
+(cl-defgeneric counsel-spotify-notify-playback-changes (backend)
+  "Notify playback changes")
+
+(cl-defmethod counsel-spotify-notify-playback-changes ((backend counsel-spotify-backend))
+  :backend-doesnt-support-notifications)
+
+(cl-defmethod counsel-spotify-notify-playback-changes ((backend counsel-spotify-linux-backend))
+  (dbus-register-signal :session "org.mpris.MediaPlayer2.spotify" "/org/mpris/MediaPlayer2" "org.freedesktop.DBus.Properties" "PropertiesChanged" #'counsel-spotify-handle-player-change)
+  :notifications-set-up)
+
+(counsel-spotify-notify-playback-changes counsel-spotify-current-backend)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; Formatting output ;;
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -300,7 +334,7 @@ Some clients, such as mopidy, can run as system services."
   (ivy-update-candidates (mapcar #'counsel-spotify-get-formatted-object (counsel-spotify-builder type-of-response completions))))
 
 (defmacro counsel-spotify-search-by (search-keyword &rest search-args)
-  "Macro that creates the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
+  "Create the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
   `(lambda (search-term) (counsel-spotify-search ,search-keyword search-term ,@search-args) 0))
 
 ;;;###autoload
