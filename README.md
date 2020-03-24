@@ -45,3 +45,11 @@ There are defined some basic controllers for the Spotify App
 Well, in that case I think you would be interested in two variables:
 * `counsel-spotify-service-name` is the name of the DBUS service counsel-spotify calls to handle the reproduction of a song
 * `counsel-spotify-use-system-bus-p` for some clients that use the system bus instead of the session
+
+---
+plstore and gnupg
+
+I had to put this into ~/.gnupg
+default-cache-ttl 34560000
+max-cache-ttl 34560000
+

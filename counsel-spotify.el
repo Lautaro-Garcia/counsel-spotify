@@ -4,7 +4,7 @@
 ;; Author: Lautaro García <https://github.com/Lautaro-Garcia>
 ;; URL: https://github.com/Lautaro-Garcia/counsel-spotify
 ;; Package: counsel-spotify
-;; Package-Requires: ((emacs "25.1") (ivy "0.13.0"))
+;; Package-Requires: ((emacs "25.1") (ivy "0.13.0") (oauth2 "0.13"))
 ;; Version: 0.4.0
 
 ;; This file is not part of GNU Emacs.
@@ -26,10 +26,13 @@
 ;; Makes it easier to browse Spotify API from Emacs.
 ;;; Code:
 
+
 (require 'url)
+(require 'oauth2)
 (require 'json)
 (require 'ivy)
 (require 'dbus)
+(require 'simple-httpd)
 
 (defgroup  counsel-spotify nil
   "Customs for `counsel-spotify'"
@@ -39,8 +42,25 @@
   "Variable to define spotify API url."
   :type 'string :group 'counsel-spotify)
 
-(defcustom counsel-spotify-spotify-api-authentication-url "https://accounts.spotify.com/api/token"
+(defcustom counsel-spotify-spotify-api-token-url "https://accounts.spotify.com/api/token"
   "Variable to define spotify API url for getting the access token."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-spotify-api-auth-url "https://accounts.spotify.com/authorize"
+  "Variable to define spotify API url for authorization."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-spotify-redirect-uri-port "8080"
+  "Variable to define spotify API url for authorization."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-spotify-redirect-uri (concat "http://localhost:"
+                                                        counsel-spotify-spotify-redirect-uri-port)
+  "Variable to define spotify API url for authorization."
+  :type 'string :group 'counsel-spotify)
+
+(defcustom counsel-spotify-scope "playlist-read-private"
+  "Spotify application oauth scope."
   :type 'string :group 'counsel-spotify)
 
 (defcustom counsel-spotify-client-id ""
@@ -51,6 +71,9 @@
   "Spotify application client secret."
   :type 'string :group 'counsel-spotify)
 
+(defcustom counsel-spotify-oauth-token nil
+  "Oauth2 token which will be set after the helpers are defined."
+  :type 'boolean :group 'counsel-spotify)
 
 (defcustom counsel-spotify-service-name "spotify"
   "Name of the DBUS service used by the client we talk to.
@@ -65,7 +88,6 @@ alternative clients such as mopidy or spotifyd."
 Some clients, such as mopidy, can run as system services."
   :type 'boolean :group 'counsel-spotify)
 
-
 (defcustom counsel-spotify-use-notifications t
   "Notify playback changes via DBUS (only for backends that support DBUS)."
   :type 'boolean :group 'counsel-spotify)
@@ -77,15 +99,99 @@ Some clients, such as mopidy, can run as system services."
 (defun counsel-spotify-verify-credentials ()
   "Tell the user that the credentials are not set."
   (when (or (string= counsel-spotify-client-id "") (string= counsel-spotify-client-secret ""))
-    (error "The variables counsel-spotify-client-id or counsel-spotify-client-secret are undefined and both are required to authenticate to the Spotify API.  See https://developer.spotify.com/my-applications")))
-
+    (error "The variables counsel-spotify-client-id or counsel-spotify-client-secret are undefined and both are required to authenticate to the Spotify API. See https://developer.spotify.com/my-applications")))
 
 (defun counsel-spotify-basic-auth-credentials ()
   "Return the Basic auth string that should be sent to ask for an auth token."
   (concat "Basic " (base64-encode-string (concat counsel-spotify-client-id ":" counsel-spotify-client-secret) t)))
 
+(defun token-exists? ()
+  "Return non-nil if oauth2 token exists else return nil.
+This is coupled with oauth2 API oauth2-compute-id and that oauth2's
+persistent storage is stored with plstore."
+  (let ((storage (plstore-open oauth2-token-file))
+        (id (oauth2-compute-id
+             counsel-spotify-spotify-api-auth-url
+             counsel-spotify-spotify-api-token-url
+             counsel-spotify-scope)))
+    ;; If token exists, return true
+    ;; else return nil
+    (not (null (plstore-get storage id)))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun start-redirect-server ()
+  (setq httpd-root "www/"
+        httpd-port "8080")
+  (httpd-start))
+
+(defun stop-redirect-server ()
+  (print "Stopping web server...")
+  (httpd-stop)
+  (kill-buffer "*httpd*"))
+
+(defun fetch-oauth-token-and-store ()
+  ;; If you see some gpg errors
+  ;; try adding this in your shell env file
+  ;; export GPG_TTY=$(tty)
+  ;; https://stackoverflow.com/questions/57591432/gpg-signing-failed-inappropriate-ioctl-for-device-on-macos-with-maven
+  ;; may need to install pinentry
+  ;; TODO
+  ;; figure out why pinentry asks for gpg password
+  ;; every single time even though
+  ;; I select save in my keychain
+  (oauth2-auth-and-store
+   counsel-spotify-spotify-api-auth-url ;; auth-url
+   counsel-spotify-spotify-api-token-url ;; token-url
+   counsel-spotify-scope ;; scope
+   counsel-spotify-client-id
+   counsel-spotify-client-secret
+   counsel-spotify-spotify-redirect-uri ;; redirect-uri
+   ))
+
+(defun get-oauth-token ()
+  "TODO: add doc."
+  ;; start web server for redirect uri
+  (let ((token nil))
+    (if (token-exists?)
+      (setq token (fetch-oauth-token-and-store))
+      (progn
+        (start-redirect-server)
+        (setq token (fetch-oauth-token-and-store))
+        (stop-redirect-server)))
+    token))
+
+(defun set-oauth-token ()
+  (setq counsel-spotify-oauth-token (get-oauth-token)))
+
+;; set token on load
+;; oauth2 library will then check
+;; if token needs refresh
+;; everytime we run oauth2-ulr-retrieve or
+;; oauth2-ulr-retrieve-synchronously
+(set-oauth-token)
+
+(defun _get-data (query)
+  "Do not use. This causes ivy navigation to break for some reason.
+   Get data synchronously and return.
+Must pass in oauth2 token struct returned by oauth2-auth-and-store."
+  (let (data)
+    (with-current-buffer
+        (oauth2-url-retrieve-synchronously
+         counsel-spotify-oauth-token
+         query)
+      (let ((data (oauth2-request-access-parse)))
+        (kill-buffer (current-buffer))
+        data))))
+
+;; This works
+(cl-defmacro counsel-spotify-with-oauth2-query-results (query-url results-variable &body body)
+  "Execute the BODY with RESULTS-VARIABLE bound to the result of oauth2-url-retrieve call."
+  `(oauth2-url-retrieve counsel-spotify-oauth-token
+                        ,query-url
+                        (lambda (status)
+                          (let ((,results-variable (oauth2-request-access-parse)))
+                            ,@body))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Spotify API integration ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -96,6 +202,9 @@ Some clients, such as mopidy, can run as system services."
   ((name :initarg :name :initform "" :reader name)
    (artist-name :initarg :artist-name :initform "" :reader artist-name)))
 
+(defclass counsel-spotify-episode (counsel-spotify-playable)
+  ((name :initarg :name :initform "" :reader name)))
+
 (defclass counsel-spotify-track (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)
    (artist :initarg :artist :initform "" :reader artist)
@@ -105,7 +214,13 @@ Some clients, such as mopidy, can run as system services."
 (defclass counsel-spotify-artist (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
+(defclass counsel-spotify-user-playlist (counsel-spotify-playable)
+  ((name :initarg :name :initform "" :reader name)))
+
 (defclass counsel-spotify-playlist (counsel-spotify-playable)
+  ((name :initarg :name :initform "" :reader name)))
+
+(defclass counsel-spotify-show (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
 (cl-defmacro counsel-spotify-with-auth-token ((auth-variable) &body body)
@@ -114,7 +229,7 @@ Some clients, such as mopidy, can run as system services."
          (url-request-data "&grant_type=client_credentials")
          (url-request-extra-headers (list (cons "Content-Type" "application/x-www-form-urlencoded")
                                           (cons "Authorization" ,(counsel-spotify-basic-auth-credentials)))))
-     (url-retrieve counsel-spotify-spotify-api-authentication-url
+     (url-retrieve counsel-spotify-spotify-api-token-url
                    (lambda (status)
                      (goto-char url-http-end-of-headers)
                      (let ((,auth-variable (alist-get 'access_token (json-read))))
@@ -129,25 +244,39 @@ Some clients, such as mopidy, can run as system services."
                      (let ((,results-variable (json-read)))
                        ,@body)))))
 
-(cl-defun counsel-spotify-make-query (&key album artist playlist track (type 'track))
+(cl-defun counsel-spotify-make-query (&key album artist episode playlist show track user-playlist (type 'track))
   "Create a new query url."
-  (if (or artist album playlist track)
-      (concat counsel-spotify-spotify-api-url
-              "/search?q="
-              (when artist (format "artist:%s" artist))
-              (when album (format " album:%s" album))
-              (when track (format " track:%s" track))
-              (when playlist (format "%s" playlist))
-              (when type (format "&type=%s" (symbol-name type))))
-    (error "Must supply at least an artist or an album or a track to search for")))
+  (cond
+   ((or artist
+        album
+        episode
+        playlist
+        show
+        track) (concat counsel-spotify-spotify-api-url
+                       "/search?q="
+                       (when artist (format "artist:%s" artist))
+                       (when album ((format "" ) " album:%s" album))
+                       (when track (format "track:%s" track))
+                       (when episode (format "name:%s" episode))
+                       (when playlist (format "%s" playlist))
+                       (when show (format "name:%s" show))
+                       (when type (format "&type=%s" (symbol-name type)))))
+   (user-playlist (concat counsel-spotify-spotify-api-url "/me/playlists"))
+   (t (error "Must supply at least an artist or an album or a track to search for"))))
 
 (cl-defun counsel-spotify-search (&rest rest)
   "Search something in Spotify, based on the query described in REST."
-  (let ((type (or (plist-get rest :type) 'track))
-        (query-url (apply #'counsel-spotify-make-query rest)))
-    (counsel-spotify-with-auth-token (auth-token)
-      (counsel-spotify-with-query-results (auth-token query-url results)
-        (counsel-spotify-update-ivy-candidates type results)))))
+  (let* ((type (or (plist-get rest :type) 'track))
+         (query-url (apply #'counsel-spotify-make-query rest))
+         ;;(results (get-data query-url))
+         )
+    (get-data query-url results
+     (counsel-spotify-update-ivy-candidates type results))
+    ;; (counsel-spotify-with-auth-token (auth-token)
+    ;;  (counsel-spotify-with-query-results (test-access-key query-url results)
+    ;;   ;;(auth-token query-url results)
+    ;;                                       (counsel-spotify-update-ivy-candidates type results)))
+    ))
 
 (cl-defgeneric counsel-spotify-builder (type spotify-alist-response)
   "Builds the TYPE object from the SPOTIFY-ALIST-RESPONSE")
@@ -180,12 +309,33 @@ Some clients, such as mopidy, can run as system services."
                               :uri (alist-get 'uri a)))
    (alist-get 'items (alist-get 'artists spotify-alist-response))))
 
+(cl-defmethod counsel-spotify-builder ((type (eql episode)) spotify-alist-response)
+  (mapcar
+   (lambda (a) (make-instance 'counsel-spotify-episode
+                              :name (alist-get 'name a)
+                              :uri (alist-get 'uri a)))
+   (alist-get 'items (alist-get 'episodes spotify-alist-response))))
+
 (cl-defmethod counsel-spotify-builder ((type (eql playlist)) spotify-alist-response)
   (mapcar
    (lambda (a) (make-instance 'counsel-spotify-playlist
                               :name (alist-get 'name a)
                               :uri (alist-get 'uri a)))
    (alist-get 'items (alist-get 'playlists spotify-alist-response))))
+
+(cl-defmethod counsel-spotify-builder ((type (eql user-playlist)) spotify-alist-response)
+  (mapcar
+   (lambda (a) (make-instance 'counsel-spotify-user-playlist
+                              :name (alist-get 'name a)
+                              :uri (alist-get 'uri a)))
+   (alist-get 'items spotify-alist-response)))
+
+(cl-defmethod counsel-spotify-builder ((type (eql show)) spotify-alist-response)
+  (mapcar
+   (lambda (a) (make-instance 'counsel-spotify-show
+                              :name (alist-get 'name a)
+                              :uri (alist-get 'uri a)))
+   (alist-get 'items (alist-get 'shows spotify-alist-response))))
 
 
 ;;;;;;;;;;;;;;;;;
@@ -301,8 +451,17 @@ Some clients, such as mopidy, can run as system services."
 (cl-defmethod counsel-spotify-format ((artist counsel-spotify-artist))
   (name artist))
 
+(cl-defmethod counsel-spotify-format ((episode counsel-spotify-episode))
+  (name episode))
+
 (cl-defmethod counsel-spotify-format ((playlist counsel-spotify-playlist))
   (name playlist))
+
+(cl-defmethod counsel-spotify-format ((user-playlist counsel-spotify-user-playlist))
+  (name user-playlist))
+
+(cl-defmethod counsel-spotify-format ((show counsel-spotify-show))
+  (name show))
 
 (cl-defmethod counsel-spotify-format ((album counsel-spotify-album))
   (concat (artist-name album) " - " (name album)))
@@ -373,6 +532,20 @@ Some clients, such as mopidy, can run as system services."
   (ivy-read "Seach artist: " (counsel-spotify-search-by :artist :type 'artist) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
+(defun counsel-spotify-search-album ()
+  "Bring Ivy frontend to choose and play an album."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Search album: " (counsel-spotify-search-by :album :type 'album) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;;;###autoload
+(defun counsel-spotify-search-episode ()
+  "Bring Ivy frontend to choose and play an episode."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Search episode: " (counsel-spotify-search-by :episode :type 'episode) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;;;###autoload
 (defun counsel-spotify-search-playlist ()
   "Bring Ivy frontend to choose and play a playlist."
   (interactive)
@@ -380,11 +553,19 @@ Some clients, such as mopidy, can run as system services."
   (ivy-read "Seach playlist: " (counsel-spotify-search-by :playlist :type 'playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
-(defun counsel-spotify-search-album ()
-  "Bring Ivy frontend to choose and play an album."
+(defun counsel-spotify-search-show ()
+  "Bring Ivy frontend to choose and play an show"
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search album: " (counsel-spotify-search-by :album :type 'album) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (ivy-read "Search show: " (counsel-spotify-search-by :show :type 'show) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;;;###autoload
+(defun counsel-spotify-search-user-playlist ()
+  "Bring Ivy frontend to choose and play a playlist for the current user.
+Current user is the user that you used to log in to spotify api console to get the client id."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Seach user playlist: " (counsel-spotify-search-by :user-playlist :type 'user-playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
 (defun counsel-spotify-search-tracks-by-artist ()
