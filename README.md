@@ -23,6 +23,7 @@ This package exposes these search functions:
 * `counsel-spotify-search-track`
 * `counsel-spotify-search-album`
 * `counsel-spotify-search-artist`
+* `counsel-spotify-search-playlist`
 * `counsel-spotify-seach-tracks-by-album`
 * `counsel-spotify-search-tracks-by-artist`
 

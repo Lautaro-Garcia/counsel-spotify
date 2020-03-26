@@ -105,6 +105,9 @@ Some clients, such as mopidy, can run as system services."
 (defclass counsel-spotify-artist (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
+(defclass counsel-spotify-playlist (counsel-spotify-playable)
+  ((name :initarg :name :initform "" :reader name)))
+
 (cl-defmacro counsel-spotify-with-auth-token ((auth-variable) &body body)
   "Execute the BODY with the AUTH-TOKEN-VARIABLE bound to the Spotify's auth token for the current user."
   `(let ((url-request-method "POST")
@@ -126,14 +129,15 @@ Some clients, such as mopidy, can run as system services."
                      (let ((,results-variable (json-read)))
                        ,@body)))))
 
-(cl-defun counsel-spotify-make-query (&key album artist track (type 'track))
+(cl-defun counsel-spotify-make-query (&key album artist playlist track (type 'track))
   "Create a new query url."
-  (if (or artist album track)
+  (if (or artist album playlist track)
       (concat counsel-spotify-spotify-api-url
               "/search?q="
               (when artist (format "artist:%s" artist))
               (when album (format " album:%s" album))
               (when track (format " track:%s" track))
+              (when playlist (format "%s" playlist))
               (when type (format "&type=%s" (symbol-name type))))
     (error "Must supply at least an artist or an album or a track to search for")))
 
@@ -164,15 +168,24 @@ Some clients, such as mopidy, can run as system services."
 (cl-defmethod counsel-spotify-builder ((type (eql album)) spotify-alist-response)
   (mapcar
    (lambda (a) (make-instance 'counsel-spotify-album
-                         :name (alist-get 'name a)
-                         :artist-name (alist-get 'name (elt (alist-get 'artists a) 0))
-                         :uri (alist-get 'uri a)))
+                              :name (alist-get 'name a)
+                              :artist-name (alist-get 'name (elt (alist-get 'artists a) 0))
+                              :uri (alist-get 'uri a)))
    (alist-get 'items (alist-get 'albums spotify-alist-response))))
 
 (cl-defmethod counsel-spotify-builder ((type (eql artist)) spotify-alist-response)
   (mapcar
-   (lambda (a) (make-instance 'counsel-spotify-artist :name (alist-get 'name a) :uri (alist-get 'uri a)))
+   (lambda (a) (make-instance 'counsel-spotify-artist
+                              :name (alist-get 'name a)
+                              :uri (alist-get 'uri a)))
    (alist-get 'items (alist-get 'artists spotify-alist-response))))
+
+(cl-defmethod counsel-spotify-builder ((type (eql playlist)) spotify-alist-response)
+  (mapcar
+   (lambda (a) (make-instance 'counsel-spotify-playlist
+                              :name (alist-get 'name a)
+                              :uri (alist-get 'uri a)))
+   (alist-get 'items (alist-get 'playlists spotify-alist-response))))
 
 
 ;;;;;;;;;;;;;;;;;
@@ -288,6 +301,9 @@ Some clients, such as mopidy, can run as system services."
 (cl-defmethod counsel-spotify-format ((artist counsel-spotify-artist))
   (name artist))
 
+(cl-defmethod counsel-spotify-format ((playlist counsel-spotify-playlist))
+  (name playlist))
+
 (cl-defmethod counsel-spotify-format ((album counsel-spotify-album))
   (concat (artist-name album) " - " (name album)))
 
@@ -355,6 +371,13 @@ Some clients, such as mopidy, can run as system services."
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Seach artist: " (counsel-spotify-search-by :artist :type 'artist) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;;;###autoload
+(defun counsel-spotify-search-playlist ()
+  "Bring Ivy frontend to choose and play a playlist."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Seach playlist: " (counsel-spotify-search-by :playlist :type 'playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
 (defun counsel-spotify-search-album ()
