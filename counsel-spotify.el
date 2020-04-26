@@ -59,7 +59,7 @@
   "Variable to define spotify API url for authorization."
   :type 'string :group 'counsel-spotify)
 
-(defcustom counsel-spotify-scope "playlist-read-private"
+(defcustom counsel-spotify-scopes "playlist-read-private"
   "Spotify application oauth scope."
   :type 'string :group 'counsel-spotify)
 
@@ -113,7 +113,7 @@ persistent storage is stored with plstore."
         (id (oauth2-compute-id
              counsel-spotify-spotify-api-auth-url
              counsel-spotify-spotify-api-token-url
-             counsel-spotify-scope)))
+             counsel-spotify-scopes)))
     ;; If token exists, return true
     ;; else return nil
     (not (null (plstore-get storage id)))))
@@ -141,7 +141,7 @@ persistent storage is stored with plstore."
   (oauth2-auth-and-store
    counsel-spotify-spotify-api-auth-url ;; auth-url
    counsel-spotify-spotify-api-token-url ;; token-url
-   counsel-spotify-scope ;; scope
+   counsel-spotify-scopes ;; scope
    counsel-spotify-client-id
    counsel-spotify-client-secret
    counsel-spotify-spotify-redirect-uri ;; redirect-uri
@@ -204,13 +204,18 @@ persistent storage is stored with plstore."
 (defclass counsel-spotify-user-playlist (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
+(defclass counsel-spotify-new-releases (counsel-spotify-playable)
+  ;; same as album - refactor
+  ((name :initarg :name :initform "" :reader name)
+   (artist-name :initarg :artist-name :initform "" :reader artist-name)))
+
 (defclass counsel-spotify-playlist (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
 (defclass counsel-spotify-show (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
-(cl-defun counsel-spotify-make-query (&key album artist episode playlist show track user-playlist (type 'track))
+(cl-defun counsel-spotify-make-query (&key album artist episode playlist show track new-releases user-playlist (type 'track))
   "Create a new query url."
   (cond
    ((or artist
@@ -228,6 +233,7 @@ persistent storage is stored with plstore."
                        (when show (format "name:%s" show))
                        (when type (format "&type=%s" (symbol-name type)))))
    (user-playlist (concat counsel-spotify-spotify-api-url "/me/playlists"))
+   (new-releases (concat counsel-spotify-spotify-api-url "/browse/new-releases"))
    (t (error "Must supply at least an artist or an album or a track to search for"))))
 
 (cl-defun counsel-spotify-search (&rest rest)
@@ -290,6 +296,15 @@ persistent storage is stored with plstore."
                               :name (alist-get 'name a)
                               :uri (alist-get 'uri a)))
    (alist-get 'items spotify-alist-response)))
+
+;; dupe of album - refactor
+(cl-defmethod counsel-spotify-builder ((type (eql new-releases)) spotify-alist-response)
+  (mapcar
+   (lambda (a) (make-instance 'counsel-spotify-new-releases
+                              :name (alist-get 'name a)
+                              :artist-name (alist-get 'name (elt (alist-get 'artists a) 0))
+                              :uri (alist-get 'uri a)))
+   (alist-get 'items (alist-get 'albums spotify-alist-response))))
 
 (cl-defmethod counsel-spotify-builder ((type (eql show)) spotify-alist-response)
   (mapcar
@@ -421,6 +436,10 @@ persistent storage is stored with plstore."
 (cl-defmethod counsel-spotify-format ((user-playlist counsel-spotify-user-playlist))
   (name user-playlist))
 
+;; dupe of album - refactor
+(cl-defmethod counsel-spotify-format ((new-releases counsel-spotify-new-releases))
+  (concat (artist-name new-releases) " - " (name new-releases)))
+
 (cl-defmethod counsel-spotify-format ((show counsel-spotify-show))
   (name show))
 
@@ -527,6 +546,17 @@ Current user is the user that you used to log in to spotify api console to get t
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Seach user playlist: " (counsel-spotify-search-by :user-playlist :type 'user-playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;;;###autoload
+(defun counsel-spotify-new-releases ()
+  "Bring Ivy frontend to choose and play a playlist for the current user.
+Current user is the user that you used to log in to spotify api console to get the client id."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "New releases: "
+            (counsel-spotify-search-by :new-releases :type 'new-releases)
+            :dynamic-collection t
+            :action #'counsel-spotify-play-property))
 
 ;;;###autoload
 (defun counsel-spotify-search-tracks-by-artist ()
