@@ -169,19 +169,6 @@ persistent storage is stored with plstore."
 ;; oauth2-ulr-retrieve-synchronously
 (set-oauth-token)
 
-(defun _get-data (query)
-  "Do not use. This causes ivy navigation to break for some reason.
-   Get data synchronously and return.
-Must pass in oauth2 token struct returned by oauth2-auth-and-store."
-  (let (data)
-    (with-current-buffer
-        (oauth2-url-retrieve-synchronously
-         counsel-spotify-oauth-token
-         query)
-      (let ((data (oauth2-request-access-parse)))
-        (kill-buffer (current-buffer))
-        data))))
-
 ;; This works
 (cl-defmacro counsel-spotify-with-oauth2-query-results (query-url results-variable &body body)
   "Execute the BODY with RESULTS-VARIABLE bound to the result of oauth2-url-retrieve call."
@@ -223,27 +210,6 @@ Must pass in oauth2 token struct returned by oauth2-auth-and-store."
 (defclass counsel-spotify-show (counsel-spotify-playable)
   ((name :initarg :name :initform "" :reader name)))
 
-(cl-defmacro counsel-spotify-with-auth-token ((auth-variable) &body body)
-  "Execute the BODY with the AUTH-TOKEN-VARIABLE bound to the Spotify's auth token for the current user."
-  `(let ((url-request-method "POST")
-         (url-request-data "&grant_type=client_credentials")
-         (url-request-extra-headers (list (cons "Content-Type" "application/x-www-form-urlencoded")
-                                          (cons "Authorization" ,(counsel-spotify-basic-auth-credentials)))))
-     (url-retrieve counsel-spotify-spotify-api-token-url
-                   (lambda (status)
-                     (goto-char url-http-end-of-headers)
-                     (let ((,auth-variable (alist-get 'access_token (json-read))))
-                       ,@body)))))
-
-(cl-defmacro counsel-spotify-with-query-results ((auth-token query-url results-variable) &body body)
-  "Execute the BODY with the results of an api call to QUERY-URL with an AUTH-TOKEN bound to RESULTS-VARIABLE."
-  `(let ((url-request-extra-headers (list (cons "Authorization" (concat "Bearer " ,auth-token)))))
-     (url-retrieve ,query-url
-                   (lambda (status)
-                     (goto-char url-http-end-of-headers)
-                     (let ((,results-variable (json-read)))
-                       ,@body)))))
-
 (cl-defun counsel-spotify-make-query (&key album artist episode playlist show track user-playlist (type 'track))
   "Create a new query url."
   (cond
@@ -266,17 +232,12 @@ Must pass in oauth2 token struct returned by oauth2-auth-and-store."
 
 (cl-defun counsel-spotify-search (&rest rest)
   "Search something in Spotify, based on the query described in REST."
-  (let* ((type (or (plist-get rest :type) 'track))
-         (query-url (apply #'counsel-spotify-make-query rest))
-         ;;(results (get-data query-url))
-         )
-    (get-data query-url results
-     (counsel-spotify-update-ivy-candidates type results))
-    ;; (counsel-spotify-with-auth-token (auth-token)
-    ;;  (counsel-spotify-with-query-results (test-access-key query-url results)
-    ;;   ;;(auth-token query-url results)
-    ;;                                       (counsel-spotify-update-ivy-candidates type results)))
-    ))
+  (let ((type (or (plist-get rest :type) 'track))
+        (query-url (apply #'counsel-spotify-make-query rest)))
+    (counsel-spotify-with-oauth2-query-results
+     query-url
+     results ;; results variable to use in the the callback macro
+     (counsel-spotify-update-ivy-candidates type results))))
 
 (cl-defgeneric counsel-spotify-builder (type spotify-alist-response)
   "Builds the TYPE object from the SPOTIFY-ALIST-RESPONSE")
