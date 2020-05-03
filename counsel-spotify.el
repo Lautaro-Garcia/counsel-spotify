@@ -1,3 +1,4 @@
+
 ;;; counsel-spotify.el --- Control Spotify search and select music with Ivy -*- lexical-binding: t; -*-
 
 ;; Copyright (C)
@@ -26,13 +27,14 @@
 ;; Makes it easier to browse Spotify API from Emacs.
 ;;; Code:
 
-
 (require 'url)
-(require 'oauth2)
+(require 'request)
+(require 'dash)
 (require 'json)
 (require 'ivy)
 (require 'dbus)
 (require 'simple-httpd)
+(require 'elisp-oauth-2)
 
 (defgroup  counsel-spotify nil
   "Customs for `counsel-spotify'"
@@ -50,16 +52,7 @@
   "Variable to define spotify API url for authorization."
   :type 'string :group 'counsel-spotify)
 
-(defcustom counsel-spotify-spotify-redirect-uri-port "8080"
-  "Variable to define spotify API url for authorization."
-  :type 'string :group 'counsel-spotify)
-
-(defcustom counsel-spotify-spotify-redirect-uri (concat "http://localhost:"
-                                                        counsel-spotify-spotify-redirect-uri-port)
-  "Variable to define spotify API url for authorization."
-  :type 'string :group 'counsel-spotify)
-
-(defcustom counsel-spotify-scopes "playlist-read-private"
+(defcustom counsel-spotify-scopes "playlist-read-private user-read-private user-read-email"
   "Spotify application oauth scope."
   :type 'string :group 'counsel-spotify)
 
@@ -71,9 +64,9 @@
   "Spotify application client secret."
   :type 'string :group 'counsel-spotify)
 
-(defcustom counsel-spotify-oauth-token nil
-  "Oauth2 token which will be set after the helpers are defined."
-  :type 'boolean :group 'counsel-spotify)
+(defcustom counsel-spotify-oauth-refresh-token nil
+  ""
+  :type 'string :group 'counsel-spotify)
 
 (defcustom counsel-spotify-service-name "spotify"
   "Name of the DBUS service used by the client we talk to.
@@ -92,6 +85,7 @@ Some clients, such as mopidy, can run as system services."
   "Notify playback changes via DBUS (only for backends that support DBUS)."
   :type 'boolean :group 'counsel-spotify)
 
+
 ;;;;;;;;;;;;;
 ;; Helpers ;;
 ;;;;;;;;;;;;;
@@ -105,78 +99,33 @@ Some clients, such as mopidy, can run as system services."
   "Return the Basic auth string that should be sent to ask for an auth token."
   (concat "Basic " (base64-encode-string (concat counsel-spotify-client-id ":" counsel-spotify-client-secret) t)))
 
-(defun token-exists? ()
-  "Return non-nil if oauth2 token exists else return nil.
-This is coupled with oauth2 API oauth2-compute-id and that oauth2's
-persistent storage is stored with plstore."
-  (let ((storage (plstore-open oauth2-token-file))
-        (id (oauth2-compute-id
-             counsel-spotify-spotify-api-auth-url
-             counsel-spotify-spotify-api-token-url
-             counsel-spotify-scopes)))
-    ;; If token exists, return true
-    ;; else return nil
-    (not (null (plstore-get storage id)))))
-
-(defun start-redirect-server ()
-  (setq httpd-root "www/"
-        httpd-port "8080")
-  (httpd-start))
-
-(defun stop-redirect-server ()
-  (print "Stopping web server...")
-  (httpd-stop)
-  (kill-buffer "*httpd*"))
-
-(defun fetch-oauth-token-and-store ()
-  ;; If you see some gpg errors
-  ;; try adding this in your shell env file
-  ;; export GPG_TTY=$(tty)
-  ;; https://stackoverflow.com/questions/57591432/gpg-signing-failed-inappropriate-ioctl-for-device-on-macos-with-maven
-  ;; may need to install pinentry
-  ;; TODO
-  ;; figure out why pinentry asks for gpg password
-  ;; every single time even though
-  ;; I select save in my keychain
-  (oauth2-auth-and-store
-   counsel-spotify-spotify-api-auth-url ;; auth-url
-   counsel-spotify-spotify-api-token-url ;; token-url
-   counsel-spotify-scopes ;; scope
+;; integrate elisp oauth2 wip
+(defun init-oauth2 ()
+  (elisp-oauth2-init
+   counsel-spotify-spotify-api-token-url
+   counsel-spotify-spotify-api-auth-url
    counsel-spotify-client-id
    counsel-spotify-client-secret
-   counsel-spotify-spotify-redirect-uri ;; redirect-uri
-   ))
+   counsel-spotify-scopes
+   counsel-spotify-oauth-refresh-token))
 
-(defun get-oauth-token ()
-  "TODO: add doc."
-  ;; start web server for redirect uri
-  (let ((token nil))
-    (if (token-exists?)
-      (setq token (fetch-oauth-token-and-store))
-      (progn
-        (start-redirect-server)
-        (setq token (fetch-oauth-token-and-store))
-        (stop-redirect-server)))
-    token))
+(defun counsel-spotify-build-result (type &rest data &allow-other-keys)
+  (counsel-spotify-update-ivy-candidates type (plist-get data :data)))
 
-(defun set-oauth-token ()
-  (setq counsel-spotify-oauth-token (get-oauth-token)))
+(cl-defun elisp-oauth2-search (&rest rest)
+  (let ((type (or (plist-get rest :type) 'track))
+        (query-url (apply #'counsel-spotify-make-query rest)))
+    (elisp-oauth-2-request
+     query-url
+     (-partial 'counsel-spotify-build-result type))))
 
-;; set token on load
-;; oauth2 library will then check
-;; if token needs refresh
-;; everytime we run oauth2-ulr-retrieve or
-;; oauth2-ulr-retrieve-synchronously
-(set-oauth-token)
-
-;; This works
-(cl-defmacro counsel-spotify-with-oauth2-query-results (query-url results-variable &body body)
-  "Execute the BODY with RESULTS-VARIABLE bound to the result of oauth2-url-retrieve call."
-  `(oauth2-url-retrieve counsel-spotify-oauth-token
-                        ,query-url
-                        (lambda (status)
-                          (let ((,results-variable (oauth2-request-access-parse)))
-                            ,@body))))
+(defmacro counsel-spotify-search-integrate-elisp-oauth2 (search-keyword &rest search-args)
+  "Proof of concept for integrating elisp-oauth2.
+   Only one type of Spotify API call can be called for this.
+   The plan is to make it similar to the existing spotify search to make it multimethod-esque."
+  `(lambda (search-term)
+     (elisp-oauth2-search ,search-keyword search-term ,@search-args)
+     0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Spotify API integration ;;
@@ -450,7 +399,6 @@ persistent storage is stored with plstore."
   "Return a string representation and it's corresponding ELEMENT as a property."
   (propertize (counsel-spotify-format element) 'property element))
 
-
 ;;;;;;;;;;;;;;;;;
 ;; Controllers ;;
 ;;;;;;;;;;;;;;;;;
@@ -571,6 +519,39 @@ Current user is the user that you used to log in to spotify api console to get t
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Search tracks by album: " (counsel-spotify-search-by :album :type 'track) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;;;###autoload
+(defun counsel-spotify-search-user-playlist ()
+  "Bring Ivy frontend to choose and play a playlist for the current user.
+Current user is the user that you used to log in to spotify api console to get the client id."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Seach user playlist: " (counsel-spotify-search-by :user-playlist :type 'user-playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
+
+;; oauth elisp integration proof of concept ;;
+
+;; provided correct and sufficient variables, this runs only once per session
+(init-oauth2)
+
+(defun counsel-spotify-search-user-playlist-2 ()
+  "Bring Ivy frontend to choose and play a playlist for the current user.
+Current user is the user that you used to log in to spotify api console to get the client id."
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Seach user playlist: "
+            (counsel-spotify-search-integrate-elisp-oauth2 :user-playlist :type 'user-playlist)
+            :dynamic-collection t
+            :action #'counsel-spotify-play-property))
+
+(defun counsel-spotify-search-show-2 ()
+  "Bring Ivy frontend to choose and play an show"
+  (interactive)
+  (counsel-spotify-verify-credentials)
+  (ivy-read "Search show: "
+            (counsel-spotify-search-integrate-elisp-oauth2 :show :type 'show)
+            :dynamic-collection t
+            :action #'counsel-spotify-play-property))
+
 
 (provide 'counsel-spotify)
 ;;; counsel-spotify.el ends here
