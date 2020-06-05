@@ -99,9 +99,9 @@ Some clients, such as mopidy, can run as system services."
   "Return the Basic auth string that should be sent to ask for an auth token."
   (concat "Basic " (base64-encode-string (concat counsel-spotify-client-id ":" counsel-spotify-client-secret) t)))
 
-;; integrate elisp oauth2 wip
-(defun init-oauth2 ()
-  (elisp-oauth2-init
+;; integrate elisp oauth-2 wip
+(defun init-oauth-2 ()
+  (elisp-oauth-2-init
    counsel-spotify-spotify-api-token-url
    counsel-spotify-spotify-api-auth-url
    counsel-spotify-client-id
@@ -112,19 +112,19 @@ Some clients, such as mopidy, can run as system services."
 (defun counsel-spotify-build-result (type &rest data &allow-other-keys)
   (counsel-spotify-update-ivy-candidates type (plist-get data :data)))
 
-(cl-defun elisp-oauth2-search (&rest rest)
+(cl-defun elisp-oauth-2-search (&rest rest)
   (let ((type (or (plist-get rest :type) 'track))
         (query-url (apply #'counsel-spotify-make-query rest)))
     (elisp-oauth-2-request
      query-url
      (-partial 'counsel-spotify-build-result type))))
 
-(defmacro counsel-spotify-search-integrate-elisp-oauth2 (search-keyword &rest search-args)
-  "Proof of concept for integrating elisp-oauth2.
+(defmacro counsel-spotify-search-integrate-elisp-oauth-2 (search-keyword &rest search-args)
+  "Proof of concept for integrating elisp-oauth-2.
    Only one type of Spotify API call can be called for this.
    The plan is to make it similar to the existing spotify search to make it multimethod-esque."
   `(lambda (search-term)
-     (elisp-oauth2-search ,search-keyword search-term ,@search-args)
+     (elisp-oauth-2-search ,search-keyword search-term ,@search-args)
      0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -189,7 +189,7 @@ Some clients, such as mopidy, can run as system services."
   "Search something in Spotify, based on the query described in REST."
   (let ((type (or (plist-get rest :type) 'track))
         (query-url (apply #'counsel-spotify-make-query rest)))
-    (counsel-spotify-with-oauth2-query-results
+    (counsel-spotify-with-oauth-2-query-results
      query-url
      results ;; results variable to use in the the callback macro
      (counsel-spotify-update-ivy-candidates type results))))
@@ -531,7 +531,7 @@ Current user is the user that you used to log in to spotify api console to get t
 ;; oauth elisp integration proof of concept ;;
 
 ;; provided correct and sufficient variables, this runs only once per session
-(init-oauth2)
+(init-oauth-2)
 
 (defun counsel-spotify-search-user-playlist-2 ()
   "Bring Ivy frontend to choose and play a playlist for the current user.
@@ -539,7 +539,7 @@ Current user is the user that you used to log in to spotify api console to get t
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Seach user playlist: "
-            (counsel-spotify-search-integrate-elisp-oauth2 :user-playlist :type 'user-playlist)
+            (counsel-spotify-search-integrate-elisp-oauth-2 :user-playlist :type 'user-playlist)
             :dynamic-collection t
             :action #'counsel-spotify-play-property))
 
@@ -548,10 +548,9 @@ Current user is the user that you used to log in to spotify api console to get t
   (interactive)
   (counsel-spotify-verify-credentials)
   (ivy-read "Search show: "
-            (counsel-spotify-search-integrate-elisp-oauth2 :show :type 'show)
+            (counsel-spotify-search-integrate-elisp-oauth-2 :show :type 'show)
             :dynamic-collection t
             :action #'counsel-spotify-play-property))
-
 
 (provide 'counsel-spotify)
 ;;; counsel-spotify.el ends here
