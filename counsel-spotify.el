@@ -116,7 +116,7 @@ Some clients, such as mopidy, can run as system services."
   (let ((type (or (plist-get rest :type) 'track))
         (query-url (apply #'counsel-spotify-make-query rest)))
     (elisp-oauth-2-request
-     query-url
+     (url-encode-url query-url)
      (-partial 'counsel-spotify-build-result type))))
 
 (defmacro counsel-spotify-search-integrate-elisp-oauth-2 (search-keyword &rest search-args)
@@ -175,11 +175,11 @@ Some clients, such as mopidy, can run as system services."
         track) (concat counsel-spotify-spotify-api-url
                        "/search?q="
                        (when artist (format "artist:%s" artist))
-                       (when album ((format "" ) " album:%s" album))
+                       (when album (format "album:%s" album))
                        (when track (format "track:%s" track))
                        (when episode (format "name:%s" episode))
                        (when playlist (format "%s" playlist))
-                       (when show (format "name:%s" show))
+                       (when show (format "%s" show))
                        (when type (format "&type=%s" (symbol-name type)))))
    (user-playlist (concat counsel-spotify-spotify-api-url "/me/playlists"))
    (new-releases (concat counsel-spotify-spotify-api-url "/browse/new-releases"))
