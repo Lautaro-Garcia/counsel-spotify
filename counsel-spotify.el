@@ -119,11 +119,11 @@ Some clients, such as mopidy, can run as system services."
      (url-encode-url query-url)
      (-partial 'counsel-spotify-build-result type))))
 
-(defmacro counsel-spotify-search-integrate-elisp-oauth-2 (search-keyword &rest search-args)
-  "Proof of concept for integrating elisp-oauth-2.
-   Only one type of Spotify API call can be called for this.
-   The plan is to make it similar to the existing spotify search to make it multimethod-esque."
+(defmacro counsel-spotify-authorization-search (search-keyword &rest search-args)
+  "This uses authorizatoin flow to obtain refreshable user authorization code.
+With this we can query for APIs that returns user data."
   `(lambda (search-term)
+     (init-oauth-2) ;; this only runs once in a session so we can place it here
      (elisp-oauth-2-search ,search-keyword search-term ,@search-args)
      0))
 
@@ -184,15 +184,6 @@ Some clients, such as mopidy, can run as system services."
    (user-playlist (concat counsel-spotify-spotify-api-url "/me/playlists"))
    (new-releases (concat counsel-spotify-spotify-api-url "/browse/new-releases"))
    (t (error "Must supply at least an artist or an album or a track to search for"))))
-
-(cl-defun counsel-spotify-search (&rest rest)
-  "Search something in Spotify, based on the query described in REST."
-  (let ((type (or (plist-get rest :type) 'track))
-        (query-url (apply #'counsel-spotify-make-query rest)))
-    (counsel-spotify-with-oauth-2-query-results
-     query-url
-     results ;; results variable to use in the the callback macro
-     (counsel-spotify-update-ivy-candidates type results))))
 
 (cl-defgeneric counsel-spotify-builder (type spotify-alist-response)
   "Builds the TYPE object from the SPOTIFY-ALIST-RESPONSE")
@@ -436,16 +427,29 @@ Some clients, such as mopidy, can run as system services."
   "Tell Ivy to update the minibuffer candidates with the COMPLETIONS list of playable objects of type TYPE-OF-RESPONSE."
   (ivy-update-candidates (mapcar #'counsel-spotify-get-formatted-object (counsel-spotify-builder type-of-response completions))))
 
-(defmacro counsel-spotify-search-by (search-keyword &rest search-args)
+(defmacro counsel-spotify-client-credentials-search-by (search-keyword &rest search-args)
   "Create the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
-  `(lambda (search-term) (counsel-spotify-search ,search-keyword search-term ,@search-args) 0))
+  `(lambda (search-term) (counsel-spotify-client-credentials-search ,search-keyword search-term ,@search-args) 0))
+
+
+(defun build-authorization-search (prompt search-keyword type)
+  ;; note that lexical binding needs to be non-nil
+  ;; for this higher order function to work
+  ;; I had to manually set this (setq lexical-binding t)
+  ;; during development
+  (lambda ()
+    (counsel-spotify-verify-credentials)
+    (ivy-read prompt
+              (counsel-spotify-authorization-search search-keyword :type type)
+              :dynamic-collection t
+              :action #'counsel-spotify-play-property)))
 
 ;;;###autoload
 (defun counsel-spotify-search-track ()
   "Bring Ivy frontend to choose and play a track."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search track: " (counsel-spotify-search-by :track)
+  (ivy-read "Search track: " (counsel-spotify-client-credentials-search-by :track)
             :dynamic-collection t
             :action '(1
                       ("p" counsel-spotify-play-property "Play track")
@@ -456,101 +460,57 @@ Some clients, such as mopidy, can run as system services."
 (defun counsel-spotify-search-artist ()
   "Bring Ivy frontend to choose and play an artist."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Seach artist: " (counsel-spotify-search-by :artist :type 'artist) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Seach artist: " :artist 'artist)))
 
 ;;;###autoload
 (defun counsel-spotify-search-album ()
   "Bring Ivy frontend to choose and play an album."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Search album: " (counsel-spotify-search-by :album :type 'album) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Search album: " :album 'album)))
 
 ;;;###autoload
 (defun counsel-spotify-search-episode ()
   "Bring Ivy frontend to choose and play an episode."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Search episode: " (counsel-spotify-search-by :episode :type 'episode) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Search episode: " :episode 'episode)))
 
 ;;;###autoload
 (defun counsel-spotify-search-playlist ()
   "Bring Ivy frontend to choose and play a playlist."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Seach playlist: " (counsel-spotify-search-by :playlist :type 'playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Seach playlist: " :playlist 'playlist)))
 
 ;;;###autoload
 (defun counsel-spotify-search-show ()
   "Bring Ivy frontend to choose and play an show"
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Search show: " (counsel-spotify-search-by :show :type 'show) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Search show: " :show 'show)))
 
 ;;;###autoload
 (defun counsel-spotify-search-user-playlist ()
   "Bring Ivy frontend to choose and play a playlist for the current user.
 Current user is the user that you used to log in to spotify api console to get the client id."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Seach user playlist: " (counsel-spotify-search-by :user-playlist :type 'user-playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Seach user playlist: " :user-playlist 'user-playlist)))
 
 ;;;###autoload
 (defun counsel-spotify-new-releases ()
   "Bring Ivy frontend to choose and play a playlist for the current user.
 Current user is the user that you used to log in to spotify api console to get the client id."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "New releases: "
-            (counsel-spotify-search-by :new-releases :type 'new-releases)
-            :dynamic-collection t
-            :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "New releases: " :new-releases 'new-releases)))
 
 ;;;###autoload
 (defun counsel-spotify-search-tracks-by-artist ()
   "Bring Ivy frontend to search for all tracks for a given artist."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Search tracks by artist: " (counsel-spotify-search-by :artist :type 'track) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Search tracks by artist: " :artist 'track)))
 
 ;;;###autoload
 (defun counsel-spotify-search-tracks-by-album ()
   "Bring Ivy frontend to search for all track on a given album."
   (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Search tracks by album: " (counsel-spotify-search-by :album :type 'track) :dynamic-collection t :action #'counsel-spotify-play-property))
-
-;;;###autoload
-(defun counsel-spotify-search-user-playlist ()
-  "Bring Ivy frontend to choose and play a playlist for the current user.
-Current user is the user that you used to log in to spotify api console to get the client id."
-  (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Seach user playlist: " (counsel-spotify-search-by :user-playlist :type 'user-playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
-
-;; oauth elisp integration proof of concept ;;
-
-;; provided correct and sufficient variables, this runs only once per session
-(init-oauth-2)
-
-(defun counsel-spotify-search-user-playlist-2 ()
-  "Bring Ivy frontend to choose and play a playlist for the current user.
-Current user is the user that you used to log in to spotify api console to get the client id."
-  (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Seach user playlist: "
-            (counsel-spotify-search-integrate-elisp-oauth-2 :user-playlist :type 'user-playlist)
-            :dynamic-collection t
-            :action #'counsel-spotify-play-property))
-
-(defun counsel-spotify-search-show-2 ()
-  "Bring Ivy frontend to choose and play an show"
-  (interactive)
-  (counsel-spotify-verify-credentials)
-  (ivy-read "Search show: "
-            (counsel-spotify-search-integrate-elisp-oauth-2 :show :type 'show)
-            :dynamic-collection t
-            :action #'counsel-spotify-play-property))
+  (funcall (build-authorization-search "Search tracks by album: " :album 'track)))
 
 (provide 'counsel-spotify)
 ;;; counsel-spotify.el ends here
