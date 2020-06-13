@@ -74,10 +74,10 @@
   "Tell Ivy to update the minibuffer candidates with the COMPLETIONS list of playable objects of type TYPE-OF-RESPONSE."
   (ivy-update-candidates (mapcar #'counsel-spotify-get-formatted-object a-list-of-counsel-spotify-objects)))
 
-(defmacro counsel-spotify-search-by (search-keyword &rest search-args)
+(defmacro counsel-spotify-search-by (&rest search-args)
   "Create the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
   `(lambda (search-term)
-     (counsel-spotify-search #'counsel-spotify-update-ivy-candidates ,search-keyword search-term ,@search-args)
+     (counsel-spotify-search #'counsel-spotify-update-ivy-candidates search-term ,@search-args)
      0))
 
 ;;;###autoload
@@ -85,7 +85,7 @@
   "Bring Ivy frontend to choose and play a track."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search track: " (counsel-spotify-search-by :track)
+  (ivy-read "Search track: " (counsel-spotify-search-by :type '(track))
             :dynamic-collection t
             :action '(1
                       ("p" counsel-spotify-play-property "Play track")
@@ -97,35 +97,35 @@
   "Bring Ivy frontend to choose and play an artist."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Seach artist: " (counsel-spotify-search-by :artist :type 'artist) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (ivy-read "Seach artist: " (counsel-spotify-search-by :type '(artist)) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
 (defun counsel-spotify-search-playlist ()
   "Bring Ivy frontend to choose and play a playlist."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Seach playlist: " (counsel-spotify-search-by :playlist :type 'playlist) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (ivy-read "Seach playlist: " (counsel-spotify-search-by :type '(playlist)) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
 (defun counsel-spotify-search-album ()
   "Bring Ivy frontend to choose and play an album."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search album: " (counsel-spotify-search-by :album :type 'album) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (ivy-read "Search album: " (counsel-spotify-search-by :type '(album) :dynamic-collection t :action #'counsel-spotify-play-property)))
 
 ;;;###autoload
 (defun counsel-spotify-search-tracks-by-artist ()
   "Bring Ivy frontend to search for all tracks for a given artist."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search tracks by artist: " (counsel-spotify-search-by :artist :type 'track) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (ivy-read "Search tracks by artist: " (counsel-spotify-search-by :filter 'artist :type '(track)) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 ;;;###autoload
 (defun counsel-spotify-search-tracks-by-album ()
   "Bring Ivy frontend to search for all track on a given album."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search tracks by album: " (counsel-spotify-search-by :album :type 'track) :dynamic-collection t :action #'counsel-spotify-play-property))
+  (ivy-read "Search tracks by album: " (counsel-spotify-search-by :filter 'album :type '(track)) :dynamic-collection t :action #'counsel-spotify-play-property))
 
 (provide 'counsel-spotify)
 ;;; counsel-spotify.el ends here

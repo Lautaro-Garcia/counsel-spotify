@@ -60,17 +60,12 @@
                      (let ((,results-variable (json-read)))
                        ,@body)))))
 
-(cl-defun counsel-spotify-make-query (&key album artist playlist track (type 'track))
-  "Create a new query url."
-  (if (or artist album playlist track)
-      (concat counsel-spotify-spotify-api-url
-              "/search?q="
-              (when artist (format "artist:%s" artist))
-              (when album (format " album:%s" album))
-              (when track (format " track:%s" track))
-              (when playlist (format "%s" playlist))
-              (when type (format "&type=%s" (symbol-name type))))
-    (error "Must supply at least an artist or an album or a track to search for")))
+(cl-defun counsel-spotify-make-query (term &key type filter)
+  (when (null type) (error "Must supply a type of object to search for"))
+  (format "%s/search?q=%s&type=%s"
+          counsel-spotify-spotify-api-url
+          (if filter (format "%s:%s" filter term) term)
+          (mapconcat #'symbol-name type ",")))
 
 (cl-defun counsel-spotify-search (a-callback &rest rest)
   "Search something in Spotify, based on the query described in REST."
