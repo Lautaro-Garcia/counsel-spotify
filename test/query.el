@@ -1,4 +1,4 @@
-(require 'counsel-spotify)
+(require 'counsel-spotify-search)
 
 (ert-deftest it-can-make-a-query-with-a-term-and-a-single-type ()
   (should (equal (counsel-spotify-make-query "foo" :type '(track))

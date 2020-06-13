@@ -108,4 +108,4 @@
   (mapcan (lambda (category) (counsel-spotify-parse-items (car category) a-spotify-alist-response))
           a-spotify-alist-response))
 
-(provide 'counsel-spotify-search-api)
+(provide 'counsel-spotify-search)

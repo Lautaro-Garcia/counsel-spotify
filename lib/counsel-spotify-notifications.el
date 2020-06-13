@@ -27,6 +27,7 @@
   (dbus-register-signal :session "org.mpris.MediaPlayer2.spotify" "/org/mpris/MediaPlayer2" "org.freedesktop.DBus.Properties" "PropertiesChanged" #'counsel-spotify-handle-player-change)
   :notifications-set-up)
 
-(counsel-spotify-notify-playback-changes counsel-spotify-current-backend)
+(when counsel-spotify-use-notifications
+  (counsel-spotify-notify-playback-changes counsel-spotify-current-backend))
 
 (provide 'counsel-spotify-notifications)
