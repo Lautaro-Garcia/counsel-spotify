@@ -52,7 +52,7 @@
   "Variable to define spotify API url for authorization."
   :type 'string :group 'counsel-spotify)
 
-(defcustom counsel-spotify-scopes "playlist-read-private user-read-private user-read-email"
+(defcustom counsel-spotify-scopes "playlist-read-private user-read-private user-read-email user-read-currently-playing user-read-playback-state"
   "Spotify application oauth scope."
   :type 'string :group 'counsel-spotify)
 
@@ -116,15 +116,17 @@ Some clients, such as mopidy, can run as system services."
   (let ((type (or (plist-get rest :type) 'track))
         (query-url (apply #'counsel-spotify-make-query rest)))
     (elisp-oauth-2-request
-     (url-encode-url query-url)
-     (-partial 'counsel-spotify-build-result type))))
+     :method "GET"
+     :url (url-encode-url query-url)
+     :callback (-partial 'counsel-spotify-build-result type))))
 
 (defmacro counsel-spotify-authorization-search (search-keyword &rest search-args)
   "This uses authorizatoin flow to obtain refreshable user authorization code.
 With this we can query for APIs that returns user data."
   `(lambda (search-term)
      (init-oauth-2) ;; this only runs once in a session so we can place it here
-     (elisp-oauth-2-search ,search-keyword search-term ,@search-args)
+     (when search-term
+       (elisp-oauth-2-search ,search-keyword search-term ,@search-args))
      0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -427,16 +429,12 @@ With this we can query for APIs that returns user data."
   "Tell Ivy to update the minibuffer candidates with the COMPLETIONS list of playable objects of type TYPE-OF-RESPONSE."
   (ivy-update-candidates (mapcar #'counsel-spotify-get-formatted-object (counsel-spotify-builder type-of-response completions))))
 
-(defmacro counsel-spotify-client-credentials-search-by (search-keyword &rest search-args)
-  "Create the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
-  `(lambda (search-term) (counsel-spotify-client-credentials-search ,search-keyword search-term ,@search-args) 0))
-
-
 (defun build-authorization-search (prompt search-keyword type)
   ;; note that lexical binding needs to be non-nil
   ;; for this higher order function to work
   ;; I had to manually set this (setq lexical-binding t)
   ;; during development
+  (setq lexical-binding t)
   (lambda ()
     (counsel-spotify-verify-credentials)
     (ivy-read prompt
@@ -449,7 +447,7 @@ With this we can query for APIs that returns user data."
   "Bring Ivy frontend to choose and play a track."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Search track: " (counsel-spotify-client-credentials-search-by :track)
+  (ivy-read "Search track: " (counsel-spotify-authorization-search :track)
             :dynamic-collection t
             :action '(1
                       ("p" counsel-spotify-play-property "Play track")
@@ -511,6 +509,31 @@ Current user is the user that you used to log in to spotify api console to get t
   "Bring Ivy frontend to search for all track on a given album."
   (interactive)
   (funcall (build-authorization-search "Search tracks by album: " :album 'track)))
+
+;;; New functionalities - WIP
+
+;;; currently playing
+(defun format-currently-playing (data)
+  (let* ((item (->> (plist-get data :data)
+                    (alist-get 'item)))
+         (artist-name (-as-> item <> (alist-get 'artists <>) (elt <> 0) (alist-get 'name <>)))
+         (track-name (->> item (alist-get 'name))))
+    (concat track-name " - " artist-name)))
+
+(defun currently-playing-cb (&rest data)
+  (if data
+    (message (format-currently-playing data))
+    (message "No currently playng song.")))
+
+;;;###autoload
+(defun counsel-spotify-currently-playing ()
+  (interactive)
+  (init-oauth-2)
+  (elisp-oauth-2-request
+   :method "GET"
+   :url "https://api.spotify.com/v1/me/player/currently-playing"
+   :callback 'currently-playing-cb))
+
 
 (provide 'counsel-spotify)
 ;;; counsel-spotify.el ends here
