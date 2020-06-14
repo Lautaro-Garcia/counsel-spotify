@@ -9,7 +9,7 @@
 ;; Version: 0.0.1
 ;; Keywords:
 ;; Homepage: https://github.com/louixs/elisp-oauth-2
-;; Package-Requires: ((emacs 26.3) (cl-lib "0.5"))
+;; Package-Requires: ((emacs 26.3) (cl-lib "0.5") (request "0.3.2") (simple-httpd "1.5.1"))
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
@@ -40,13 +40,13 @@
 (defvar elisp-oauth-2-client-secret ""
   "Spotify application client secret.")
 
-(defvar elisp-oauth-2-oauth-refresh-token nil
+(defvar elisp-oauth-2-oauth-refresh-token ""
   "")
 
-(defvar elisp-oauth-2-oauth-access-token nil
+(defvar elisp-oauth-2-oauth-access-token ""
   "")
 
-(defvar elisp-oauth-2-oauth-code nil
+(defvar elisp-oauth-2-oauth-code ""
   "")
 
 (defvar elisp-oauth-2-scopes ""
@@ -126,7 +126,7 @@
   "Make the initial code request for OAuth."
   (request elisp-oauth-2-api-token-url
     :complete #'elisp-oauth-2-oauth-fetch-callback
-    :sync t
+    ;:sync t
     :data (concat "client_id=" elisp-oauth-2-client-id
                   "&client_secret=" elisp-oauth-2-client-secret
                   "&code=" elisp-oauth-2-oauth-code
@@ -139,6 +139,7 @@
 ;; TODO: refactor
 (cl-defun elisp-oauth-2-oauth-refresh-callback (&rest data &allow-other-keys)
   "Callback to run when the oauth code fetch is complete."
+  (setq _data data)
   (let-alist (plist-get data :data)
     (unless (and .access_token .expires_in)
       (message "counsel-spotify: Failed to fetch OAuth access_token values!")
@@ -171,10 +172,13 @@
   "Retrieve oauth access token and refresh token if they are nil.
 Access token gets refreshed if necessary."
   (cond ((and elisp-oauth-2-oauth-refresh-token
+              (not (equal "" elisp-oauth-2-oauth-refresh-token))
               (elisp-oauth-2-refresh-oauth-token?))
          (elisp-oauth-2-oauth-refresh-authorization-token))
         ((or (not elisp-oauth-2-oauth-refresh-token)
-             (not elisp-oauth-2-oauth-access-token))
+             (equal "" elisp-oauth-2-oauth-refresh-token)
+             (not elisp-oauth-2-oauth-access-token)
+             (equal "" elisp-oauth-2-oauth-access-token))
          (elisp-oauth-2-fetch-and-set-tokens))
         (t nil)))
 
@@ -206,7 +210,7 @@ Access token gets refreshed if necessary."
   (funcall _elisp-oauth-2-set-vars token-url oauth-url client-id client-secret scopes refresh-token))
 
 ;;;###autoload
-(defun elisp-oauth-2-request (url callback)
+(cl-defun elisp-oauth-2-request (&key url callback method)
   "Wrapper for request to do http calls.
 URL - api endpoint
 CALLBACK - callback function
@@ -214,7 +218,7 @@ TODO: make request type configurable."
   (elisp-oauth-2-handle-oauth)
   (request url
     :complete callback
-    :type "GET"
+    :type method
     :parser 'json-read
     :headers `(("Authorization" . ,(format  "Bearer %s" elisp-oauth-2-oauth-access-token)))))
 

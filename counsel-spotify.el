@@ -5,7 +5,7 @@
 ;; Author: Lautaro García <https://github.com/Lautaro-Garcia>
 ;; URL: https://github.com/Lautaro-Garcia/counsel-spotify
 ;; Package: counsel-spotify
-;; Package-Requires: ((emacs "25.1") (ivy "0.13.0") (oauth2 "0.13"))
+;; Package-Requires: ((emacs "25.1") (ivy "0.13.0") (elisp-oauth-2 "0.0.1") (dash "2.17.0"))
 ;; Version: 0.4.0
 
 ;; This file is not part of GNU Emacs.
@@ -28,12 +28,10 @@
 ;;; Code:
 
 (require 'url)
-(require 'request)
 (require 'dash)
 (require 'json)
 (require 'ivy)
 (require 'dbus)
-(require 'simple-httpd)
 (require 'elisp-oauth-2)
 
 (defgroup  counsel-spotify nil
@@ -429,6 +427,7 @@ With this we can query for APIs that returns user data."
   "Tell Ivy to update the minibuffer candidates with the COMPLETIONS list of playable objects of type TYPE-OF-RESPONSE."
   (ivy-update-candidates (mapcar #'counsel-spotify-get-formatted-object (counsel-spotify-builder type-of-response completions))))
 
+;;;###autoload
 (defun build-authorization-search (prompt search-keyword type)
   ;; note that lexical binding needs to be non-nil
   ;; for this higher order function to work
