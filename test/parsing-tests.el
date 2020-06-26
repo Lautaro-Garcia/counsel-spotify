@@ -1,5 +1,5 @@
 (require 'counsel-spotify-search)
-(require 'test-spotify-responses)
+(require 'spotify-responses-tests)
 
 (ert-deftest it-parses-an-artist-response ()
   (should (equal (counsel-spotify-parse-response (json-read-from-string artist-spotify-response))

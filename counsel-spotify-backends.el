@@ -59,12 +59,12 @@ Some clients, such as mopidy, can run as system services."
 (cl-defmethod counsel-spotify-do-play ((backend counsel-spotify-linux-backend) (playable counsel-spotify-playable))
   (counsel-spotify-call-spotify-via-dbus "OpenUri" (uri playable)))
 
-(defun counsel-spotify-unwrap-property (elem)
+(defun counsel-spotify-unwrap-spotify-object (spotify-object-as-string)
   "Unwrap the property of ELEM."
-  (get-text-property 0 'property elem))
+  (get-text-property 0 'spotify-object spotify-object-as-string))
 
-(defun counsel-spotify-play-property (elem)
+(defun counsel-spotify-play-string (spotify-object-as-string)
   "Call play on an unwrapped ELEM."
-  (counsel-spotify-do-play counsel-spotify-current-backend (counsel-spotify-unwrap-property elem)))
+  (counsel-spotify-do-play counsel-spotify-current-backend (counsel-spotify-unwrap-spotify-object spotify-object-as-string)))
 
 (provide 'counsel-spotify-backends)

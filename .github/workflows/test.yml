@@ -21,4 +21,4 @@ jobs:
       with:
         version: ${{ matrix.emacs_version }}
     - name: Run tests
-      run: emacs -Q -batch -l ert -L lib/ -L test/ -l test/output.el -l test/query.el -l test/parsing.el -f ert-run-tests-batch-and-exit
+      run: emacs -Q -batch -l ert -L . -L test/ -l test/output-tests.el -l test/query-tests.el -l test/parsing-tests.el -f ert-run-tests-batch-and-exit

@@ -4,7 +4,8 @@
   "Format an ELEMENT to be shown in the minibuffer.")
 
 (cl-defmethod counsel-spotify-format :around (element)
-  (decode-coding-string (string-make-unibyte (cl-call-next-method)) 'utf-8))
+  (propertize (decode-coding-string (string-make-unibyte (cl-call-next-method)) 'utf-8)
+              'spotify-object element))
 
 (cl-defmethod counsel-spotify-format ((playable counsel-spotify-playable))
   (name playable))

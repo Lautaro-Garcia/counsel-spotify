@@ -487,4 +487,4 @@
 }
 ")
 
-(provide 'test-spotify-responses)
+(provide 'spotify-responses-tests)
