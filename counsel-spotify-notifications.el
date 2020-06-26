@@ -23,9 +23,10 @@
 (cl-defmethod counsel-spotify-notify-playback-changes ((backend counsel-spotify-backend))
   :backend-doesnt-support-notifications)
 
-(cl-defmethod counsel-spotify-notify-playback-changes ((backend counsel-spotify-linux-backend))
-  (dbus-register-signal :session "org.mpris.MediaPlayer2.spotify" "/org/mpris/MediaPlayer2" "org.freedesktop.DBus.Properties" "PropertiesChanged" #'counsel-spotify-handle-player-change)
-  :notifications-set-up)
+(when (featurep 'dbusbind)
+  (cl-defmethod counsel-spotify-notify-playback-changes ((backend counsel-spotify-linux-backend))
+    (dbus-register-signal :session "org.mpris.MediaPlayer2.spotify" "/org/mpris/MediaPlayer2" "org.freedesktop.DBus.Properties" "PropertiesChanged" #'counsel-spotify-handle-player-change)
+    :notifications-set-up))
 
 (when counsel-spotify-use-notifications
   (counsel-spotify-notify-playback-changes counsel-spotify-current-backend))
