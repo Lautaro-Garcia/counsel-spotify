@@ -105,7 +105,7 @@
             items)))
 
 (defun counsel-spotify-parse-response (a-spotify-alist-response) ;
-  (mapcan (lambda (category) (counsel-spotify-parse-items (car category) a-spotify-alist-response))
-          a-spotify-alist-response))
+  (cl-mapcan (lambda (category) (counsel-spotify-parse-items (car category) a-spotify-alist-response))
+             a-spotify-alist-response))
 
 (provide 'counsel-spotify-search)
