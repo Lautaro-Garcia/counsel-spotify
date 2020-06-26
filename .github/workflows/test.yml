@@ -22,3 +22,6 @@ jobs:
         version: ${{ matrix.emacs_version }}
     - name: Run tests
       run: emacs -Q -batch -l ert -L . -L test/ -l test/output-tests.el -l test/query-tests.el -l test/parsing-tests.el -f ert-run-tests-batch-and-exit
+    - uses: leotaku/elisp-check@master
+      with:
+        file: "counsel-spotify.el"

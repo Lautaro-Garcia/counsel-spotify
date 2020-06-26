@@ -26,12 +26,11 @@
 ;; Makes it easier to browse Spotify API from Emacs.
 ;;; Code:
 
-
 (require 'ivy)
-(require 'counsel-spotify-search "counsel-spotify-search")
-(require 'counsel-spotify-backends "counsel-spotify-backends")
-(require 'counsel-spotify-notifications "counsel-spotify-notifications")
-(require 'counsel-spotify-messages "counsel-spotify-messages")
+(require 'counsel-spotify-search)
+(require 'counsel-spotify-backends)
+(require 'counsel-spotify-notifications)
+(require 'counsel-spotify-messages)
 
 (defgroup  counsel-spotify nil
   "Customs for `counsel-spotify'"

@@ -1,4 +1,5 @@
 (require 'dbus)
+(require 'counsel-spotify-search)
 
 (defcustom counsel-spotify-service-name "spotify"
   "Name of the DBUS service used by the client we talk to.
