@@ -70,9 +70,9 @@
 ;; Ivy interface ;;
 ;;;;;;;;;;;;;;;;;;;
 
-(defun counsel-spotify-update-ivy-candidates (a-list-of-counsel-spotify-objects)
-  "Tell Ivy to update the minibuffer candidates with the COMPLETIONS list of playable objects of type TYPE-OF-RESPONSE."
-  (ivy-update-candidates (mapcar #'counsel-spotify-format a-list-of-counsel-spotify-objects)))
+(defun counsel-spotify-update-ivy-candidates (list-of-counsel-spotify-objects)
+  "Tell Ivy to update the minibuffer candidates with the LIST-OF-COUNSEL-SPOTIFY-OBJECTS."
+  (ivy-update-candidates (mapcar #'counsel-spotify-format list-of-counsel-spotify-objects)))
 
 (defmacro counsel-spotify-search-by (&rest search-args)
   "Create the function to search by SEARCH-KEYWORD and other SEARCH-ARGS."
