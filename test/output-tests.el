@@ -1,6 +1,9 @@
 (require 'counsel-spotify-messages)
 (require 'counsel-spotify-backends)
 
+(defun as-utf8 (a-string)
+  (decode-coding-string (string-make-unibyte a-string) 'utf-8))
+
 (ert-deftest it-formats-an-album-object ()
   (let* ((album (make-instance 'counsel-spotify-album :name "Album" :artist-name "Artist"))
          (album-as-string (counsel-spotify-format album)))
@@ -22,3 +25,9 @@
          (playable-as-string (counsel-spotify-format playable)))
     (should (equal playable-as-string "Something"))
     (should (equal (counsel-spotify-unwrap-spotify-object playable-as-string) playable))))
+
+(ert-deftest it-formats-objects-displaying-accents ()
+  (let ((playable (make-instance 'counsel-spotify-playable :name "Você"))
+        (album (make-instance 'counsel-spotify-album :name "Niño" :artist-name "Não")))
+    (should (equal (counsel-spotify-format playable) (as-utf8 "Você")))
+    (should (equal (counsel-spotify-format album) (as-utf8 "Não - Niño")))))

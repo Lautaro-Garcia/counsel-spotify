@@ -28,7 +28,7 @@
 
 (cl-defmethod counsel-spotify-format :around (element)
   "Get the actual Spotify object from the string property of ELEMENT in order to format it according to its type."
-  (propertize (decode-coding-string (encode-coding-string (cl-call-next-method) 'utf-8) 'utf-8)
+  (propertize (decode-coding-string (string-make-unibyte (cl-call-next-method)) 'utf-8)
               'spotify-object element))
 
 (cl-defmethod counsel-spotify-format ((playable counsel-spotify-playable))
