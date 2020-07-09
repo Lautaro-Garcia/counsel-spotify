@@ -89,8 +89,8 @@
             :dynamic-collection t
             :action '(1
                       ("p" counsel-spotify-play-string "Play track")
-                      ("a" (lambda (elem) (counsel-spotify-do-play counsel-spotify-current-backend (album (counsel-spotify-unwrap-property elem)))) "Play album")
-                      ("A" (lambda (elem) (counsel-spotify-do-play counsel-spotify-current-backend (artist (counsel-spotify-unwrap-property elem)))) "Play artist"))))
+                      ("a" (lambda (elem) (counsel-spotify-do-play counsel-spotify-current-backend (album (counsel-spotify-unwrap-spotify-object elem)))) "Play album")
+                      ("A" (lambda (elem) (counsel-spotify-do-play counsel-spotify-current-backend (artist (counsel-spotify-unwrap-spotify-object elem)))) "Play artist"))))
 
 ;;;###autoload
 (defun counsel-spotify-search-artist ()
