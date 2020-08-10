@@ -67,7 +67,7 @@
   `(let ((url-request-method "POST")
          (url-request-data "&grant_type=client_credentials")
          (url-request-extra-headers (list (cons "Content-Type" "application/x-www-form-urlencoded")
-                                          (cons "Authorization" ,(counsel-spotify-basic-auth-credentials)))))
+                                          (cons "Authorization" (counsel-spotify-basic-auth-credentials)))))
      (url-retrieve counsel-spotify-spotify-api-authentication-url
                    (lambda (_status)
                      (goto-char url-http-end-of-headers)
