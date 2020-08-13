@@ -97,14 +97,14 @@
   "Bring Ivy frontend to choose and play an artist."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Seach artist: " (counsel-spotify-search-by :type '(artist)) :dynamic-collection t :action #'counsel-spotify-play-string))
+  (ivy-read "Search artist: " (counsel-spotify-search-by :type '(artist)) :dynamic-collection t :action #'counsel-spotify-play-string))
 
 ;;;###autoload
 (defun counsel-spotify-search-playlist ()
   "Bring Ivy frontend to choose and play a playlist."
   (interactive)
   (counsel-spotify-verify-credentials)
-  (ivy-read "Seach playlist: " (counsel-spotify-search-by :type '(playlist)) :dynamic-collection t :action #'counsel-spotify-play-string))
+  (ivy-read "Search playlist: " (counsel-spotify-search-by :type '(playlist)) :dynamic-collection t :action #'counsel-spotify-play-string))
 
 ;;;###autoload
 (defun counsel-spotify-search-album ()
