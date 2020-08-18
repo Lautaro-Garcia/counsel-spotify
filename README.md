@@ -24,7 +24,7 @@ This package exposes these search functions:
 * `counsel-spotify-search-album`
 * `counsel-spotify-search-artist`
 * `counsel-spotify-search-playlist`
-* `counsel-spotify-seach-tracks-by-album`
+* `counsel-spotify-search-tracks-by-album`
 * `counsel-spotify-search-tracks-by-artist`
 
 The options are fetched from Spotify REST API. Hitting `RET` while selecting an option will start playing that track or album (depending on what the search were). Also, hitting `M-o` will prompt a tiny menu with some more actions to choose from (for example, choosing to play the entire album a song belongs to)
