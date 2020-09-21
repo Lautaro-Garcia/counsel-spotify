@@ -1,0 +1,39 @@
+body {
+  height: 100vh;
+  display: flex;
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 1.3rem;
+  color: whitesmoke;
+  font-weight: bold;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(180deg, #1ed760, #7f5ab6) no-repeat;
+  padding: 20px;
+}
+
+#text {
+  padding-bottom: 10px;
+}
+
+#token-container {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  max-width: 1000px;
+}
+
+#token {
+  flex: 1;
+  margin-right: 10px;
+}
+
+#footer {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+
+img {
+  width: 20px;
+}

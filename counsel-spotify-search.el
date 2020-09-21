@@ -24,31 +24,7 @@
 
 (require 'json)
 (require 'url)
-
-(defcustom counsel-spotify-spotify-api-url "https://api.spotify.com/v1"
-  "Variable to define spotify API url."
-  :type 'string :group 'counsel-spotify)
-
-(defcustom counsel-spotify-spotify-api-authentication-url "https://accounts.spotify.com/api/token"
-  "Variable to define spotify API url for getting the access token."
-  :type 'string :group 'counsel-spotify)
-
-(defcustom counsel-spotify-client-id ""
-  "Spotify application client ID."
-  :type 'string :group 'counsel-spotify)
-
-(defcustom counsel-spotify-client-secret ""
-  "Spotify application client secret."
-  :type 'string :group 'counsel-spotify)
-
-(defun counsel-spotify-verify-credentials ()
-  "Tell the user that the credentials are not set."
-  (when (or (string= counsel-spotify-client-id "") (string= counsel-spotify-client-secret ""))
-    (error "The variables counsel-spotify-client-id or counsel-spotify-client-secret are undefined and both are required to authenticate to the Spotify API.  See https://developer.spotify.com/my-applications")))
-
-(defun counsel-spotify-basic-auth-credentials ()
-  "Return the Basic auth string that should be sent to ask for an auth token."
-  (concat "Basic " (base64-encode-string (concat counsel-spotify-client-id ":" counsel-spotify-client-secret) t)))
+(require 'oauth2)
 
 (defclass counsel-spotify-playable ()
   ((name :initarg :name :initform "" :reader name)
@@ -62,44 +38,17 @@
    (album :initarg :album :initform "" :reader album)
    (duration-in-ms :initarg :duration :initform 0 :reader duration-in-ms)))
 
-(cl-defmacro counsel-spotify-with-auth-token ((auth-variable) &body body)
-  "Execute with AUTH-VARIABLE bound to the Spotify's auth token for the current user the BODY."
-  `(let ((url-request-method "POST")
-         (url-request-data "&grant_type=client_credentials")
-         (url-request-extra-headers (list (cons "Content-Type" "application/x-www-form-urlencoded")
-                                          (cons "Authorization" (counsel-spotify-basic-auth-credentials)))))
-     (url-retrieve counsel-spotify-spotify-api-authentication-url
-                   (lambda (_status)
-                     (goto-char url-http-end-of-headers)
-                     (let ((,auth-variable (alist-get 'access_token (json-read))))
-                       ,@body)))))
-
-(cl-defmacro counsel-spotify-with-query-results ((auth-token query-url results-variable) &body body)
-  "Execute the BODY with the results of an api call to QUERY-URL with an AUTH-TOKEN bound to RESULTS-VARIABLE."
-  `(let ((url-request-extra-headers (list (cons "Authorization" (concat "Bearer " ,auth-token)))))
-     (url-retrieve ,query-url
-                   (lambda (_status)
-                     (goto-char url-http-end-of-headers)
-                     (let ((,results-variable (json-read)))
-                       ,@body)))))
-
 (cl-defun counsel-spotify-make-query (term &key type filter)
   "Make a Spotify query to search for TERM of type TYPE with a FILTER."
   (when (null type) (error "Must supply a type of object to search for"))
-  (format "%s/search?q=%s&type=%s"
-          counsel-spotify-spotify-api-url
+  (format "/search?q=%s&type=%s"
           (if filter (format "%s:%s" filter term) term)
           (mapconcat #'symbol-name type ",")))
 
 (cl-defun counsel-spotify-search (a-callback &rest rest)
   "Call A-CALLBACK with the parsed result of the query described by REST."
   (let ((query-url (apply #'counsel-spotify-make-query rest)))
-    (counsel-spotify-with-auth-token (auth-token)
-      (counsel-spotify-with-query-results (auth-token query-url results)
-        (funcall a-callback (counsel-spotify-parse-response results))))))
-
-(cl-defgeneric counsel-spotify-parse-spotify-object (a-spotify-object type)
-  "Parse A-SPOTIFY-OBJECT knowing it has the type TYPE.")
+    (counsel-spotify-request (make-instance 'counsel-spotify-client-credentials-flow) query-url a-callback)))
 
 (cl-defmethod counsel-spotify-parse-spotify-object (spotify-object _type)
   "Parse a generic SPOTIFY-OBJECT of type _TYPE."
