@@ -24,7 +24,6 @@
 
 (require 'json)
 (require 'url)
-(require 'oauth2)
 
 (defclass counsel-spotify-playable ()
   ((name :initarg :name :initform "" :reader name)
@@ -48,7 +47,7 @@
 (cl-defun counsel-spotify-search (a-callback &rest rest)
   "Call A-CALLBACK with the parsed result of the query described by REST."
   (let ((query-url (apply #'counsel-spotify-make-query rest)))
-    (counsel-spotify-request (make-instance 'counsel-spotify-client-credentials-flow) query-url a-callback)))
+    (counsel-spotify-request (make-instance 'counsel-spotify-client-credentials-flow) query-url a-callback :response-type 'items)))
 
 (cl-defmethod counsel-spotify-parse-spotify-object (spotify-object _type)
   "Parse a generic SPOTIFY-OBJECT of type _TYPE."
@@ -76,14 +75,18 @@
                    :artist main-artist
                    :duration duration-in-ms
                    :album album)))
-
 (defun counsel-spotify-parse-items (a-spotify-alist-response a-type)
   "Parse every item in A-SPOTIFY-ALIST-RESPONSE as being of the type A-TYPE."
   (let ((items (alist-get 'items (alist-get a-type a-spotify-alist-response))))
+    (when (null items)
+      (error "Spotify response key \"%s\" has no items response \"%s\"" a-type a-spotify-alist-response))
     (mapcar (lambda (item) (counsel-spotify-parse-spotify-object item a-type))
             items)))
 
-(defun counsel-spotify-parse-response (a-spotify-alist-response)
+(defgeneric counsel-spotify-parse-response (a-spotify-alist-response a-response-type)
+  "Return A-SPOTIFY-ALIST-RESPONSE as a parsed counsel-spotify object depending on A-RESPONSE-TYPE.")
+
+(cl-defmethod counsel-spotify-parse-response (a-spotify-alist-response (_type (eql items)))
   "Parse A-SPOTIFY-ALIST-RESPONSE iterating through every category."
   (cl-mapcan (lambda (category) (counsel-spotify-parse-items a-spotify-alist-response  (car category)))
              a-spotify-alist-response))

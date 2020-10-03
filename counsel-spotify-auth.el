@@ -64,13 +64,13 @@
 (cl-defgeneric counsel-spotify-parse-spotify-object (a-spotify-object type)
   "Parse A-SPOTIFY-OBJECT knowing it has the type TYPE.")
 
-(cl-defgeneric counsel-spotify-request (authorization-flow url callback)
+(cl-defgeneric counsel-spotify-request (authorization-flow url callback &key (method "GET") response-type)
   "Call CALLBACK with the result of parsing as counsel-spotify objects the response of the authorized request to URL via the corresponding AUTHORIZATION-FLOW.")
 
 
-;;;;;;;;;;;;;;;;;;;:::::::::::
-;; Authorization Code  Flow ;;
-;;;;;;;;;;;;;;;;;;;:::::::::::
+;;;;;;;;;;;;;;;;;;;::::::::::
+;; Authorization Code Flow ;;
+;;;;;;;;;;;;;;;;;;;::::::::::
 
 (defclass counsel-spotify-authorization-code-flow (authorization-flow) ())
 
@@ -83,17 +83,20 @@
                          counsel-spotify-client-secret
                          (concat "http://localhost:" counsel-spotify-local-http-server-port)))
 
-(defmethod counsel-spotify-request ((_authorization-flow counsel-spotify-authorization-code-flow) endpoint callback)
+(cl-defmethod counsel-spotify-request ((_authorization-flow counsel-spotify-authorization-code-flow) endpoint callback &key method response-type)
   "Call CALLBACK with the result of parsing as counsel-spotify objects the response of the authorized request to ENDPOINT."
   (setq oauth--url-advice t)
   (let ((token (counsel-spotify-oauth2-token))
         (spotify-url (counsel-spotify-make-api-url endpoint)))
     (setq oauth--token-data (cons token spotify-url))
     (oauth2-url-retrieve token
-                         (counsel-spotify-make-api-url spotify-url)
+                         spotify-url
                          (lambda (_status)
                            (goto-char url-http-end-of-headers)
-                           (funcall callback (counsel-spotify-parse-response (json-read)))))))
+                           (funcall callback (counsel-spotify-parse-response (json-read) response-type)))
+                         nil
+                         method
+                         "")))
 
 
 ;;;;;;;;;;;;;;;;;;;::::::::::
@@ -127,11 +130,11 @@
                      (let ((,results-variable (json-read)))
                        ,@body)))))
 
-(defmethod counsel-spotify-request ((_authorization-flow counsel-spotify-client-credentials-flow) endpoint callback)
+(cl-defmethod counsel-spotify-request ((_authorization-flow counsel-spotify-client-credentials-flow) endpoint callback &key method response-type)
   "Make a HTTP requqest to ENDPOINT with the proper _AUTHORIZATION-FLOW and execute CALLBACK with its result parsed as counsel-spotify objects."
   (counsel-spotify-with-auth-token (credentials)
     (counsel-spotify-with-query-results (credentials (counsel-spotify-make-api-url endpoint) results)
-      (funcall callback (counsel-spotify-parse-response results)))))
+      (funcall callback (counsel-spotify-parse-response results response-type)))))
 
 ;;;;;;;;;;;;;;;;;;;::::::::
 ;; Oauth callback server ;;
