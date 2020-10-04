@@ -57,6 +57,7 @@
     (error "The variables counsel-spotify-client-id or counsel-spotify-client-secret are undefined and both are required to authenticate to the Spotify API.  See https://developer.spotify.com/my-applications")))
 
 (defun counsel-spotify-make-api-url (endpoint)
+  "Create the api url for ENDPOINT."
   (format "%s%s" counsel-spotify-spotify-api-url endpoint))
 
 (defclass authorization-flow () ())
@@ -131,7 +132,7 @@
                        ,@body)))))
 
 (cl-defmethod counsel-spotify-request ((_authorization-flow counsel-spotify-client-credentials-flow) endpoint callback &key method response-type)
-  "Make a HTTP requqest to ENDPOINT with the proper _AUTHORIZATION-FLOW and execute CALLBACK with its result parsed as counsel-spotify objects."
+  "Make a HTTP request with METHOD to ENDPOINT with the proper _AUTHORIZATION-FLOW and execute CALLBACK with its result parsed as RESPONSE-TYPE."
   (counsel-spotify-with-auth-token (credentials)
     (counsel-spotify-with-query-results (credentials (counsel-spotify-make-api-url endpoint) results)
       (funcall callback (counsel-spotify-parse-response results response-type)))))
@@ -148,7 +149,7 @@
   (set-process-query-on-exit-flag (get-process "httpd") nil))
 
 (defun counsel-spotify-stop-http-auth-server ()
-  "Stop auth server"
+  "Stop auth server."
   (httpd-stop))
 
 (counsel-spotify-start-http-auth-server)
