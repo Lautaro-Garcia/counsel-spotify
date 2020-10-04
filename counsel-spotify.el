@@ -4,7 +4,7 @@
 ;; Author: Lautaro García <https://github.com/Lautaro-Garcia>
 ;; URL: https://github.com/Lautaro-Garcia/counsel-spotify
 ;; Package: counsel-spotify
-;; Package-Requires: ((emacs "25.1") (ivy "0.13.0") (simple-httpd "1.5.1"))
+;; Package-Requires: ((emacs "25.1") (ivy "0.13.0") (simple-httpd "1.5.1") (oauth2 "0.15"))
 ;; Version: 0.6.0
 
 ;; This file is not part of GNU Emacs.
